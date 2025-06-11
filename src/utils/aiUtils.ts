@@ -22,8 +22,22 @@ export function generateAIMessage(
   const isLiberal = player.role === 'liberal';
   const isFascist = player.role === 'fascist' || player.role === 'hitler';
   
-  // Base message templates by context
-  const templates = getMessageTemplates(context, traits, isLiberal);
+  // Get all possible templates for this context
+  const allTemplates = getMessageTemplates(context, traits, isLiberal);
+  
+  // Filter out recently used messages for this player
+  const recentMessages = player.memory
+    .slice(-3)
+    .flatMap(m => m.messages || []);
+  
+  const availableTemplates = allTemplates.filter(
+    template => !recentMessages.includes(template)
+  );
+  
+  // If all templates were recently used, reset and use all templates
+  const templates = availableTemplates.length > 0 ? availableTemplates : allTemplates;
+  
+  // Select a template with some randomization
   const template = templates[Math.floor(Math.random() * templates.length)];
   
   // Add player-specific context
@@ -35,11 +49,19 @@ export function generateAIMessage(
     .filter(p => p.id !== player.id && player.memory.some(m => m.alliances[p.id] > 0.6))
     .map(p => p.name);
   
-  return template
+  const message = template
     .replace('{suspicious}', suspiciousPlayers[0] || 'someone')
     .replace('{trusted}', trustedPlayers[0] || 'someone')
     .replace('{president}', gameState.players.find(p => p.id === gameState.president)?.name || 'the president')
     .replace('{chancellor}', gameState.players.find(p => p.id === gameState.chancellor)?.name || 'the chancellor');
+  
+  // Update player's memory with the used message
+  const lastMemory = player.memory[player.memory.length - 1];
+  if (lastMemory) {
+    lastMemory.messages = [...(lastMemory.messages || []), template];
+  }
+  
+  return message;
 }
 
 function getMessageTemplates(
@@ -52,95 +74,104 @@ function getMessageTemplates(
   const trusting = traits.trustLevel > 0.7;
   const suspicious = traits.trustLevel < 0.3;
   
-  switch (context) {
-    case 'nomination':
-      if (aggressive && suspicious) {
-        return [
-          "We need to be careful who we trust here. {president} better choose wisely.",
-          "I don't like how this is going. Someone's playing games.",
-          "The fascists are among us - we need to smoke them out!"
-        ];
-      } else if (cautious && trusting) {
-        return [
-          "Let's think this through carefully. Who do we trust?",
-          "I believe {president} will make the right choice.",
-          "We should consider all options before deciding."
-        ];
-      }
-      return [
-        "This is a crucial decision.",
-        "Who can we trust with this power?",
-        "The fate of democracy hangs in the balance."
-      ];
-      
-    case 'voting':
-      if (isLiberal) {
-        return [
-          "I'm voting based on what I think is best for the liberals.",
-          "This government seems trustworthy to me.",
-          "I have concerns about this pairing.",
-          "Let's see what policies they give us."
-        ];
-      } else {
-        return [
-          "This could work in our favor.",
-          "I trust this government completely.",
-          "Something feels off about this choice.",
-          "We need to be strategic here."
-        ];
-      }
-      
-    case 'post-vote':
-      return [
-        "Interesting voting pattern there...",
-        "I'm watching who voted how.",
-        "That tells us something about people's loyalties.",
-        "The votes reveal more than the policies sometimes."
-      ];
-      
-    case 'post-policy':
-      if (suspicious) {
-        return [
-          "That policy result is very convenient for someone...",
-          "I'm starting to see a pattern here.",
-          "The fascists are playing us perfectly.",
-          "We're being manipulated and it's working."
-        ];
-      }
-      return [
-        "Well, that changes things.",
-        "Another piece of the puzzle.",
-        "The board is telling a story.",
-        "We need to adjust our strategy."
-      ];
-      
-    case 'accusation':
-      if (aggressive) {
-        return [
-          "{suspicious} has been acting very suspiciously!",
-          "I think {suspicious} is definitely a fascist!",
-          "Look at {suspicious}'s voting pattern - it's obvious!",
-          "We need to stop trusting {suspicious} immediately!"
-        ];
-      }
-      return [
-        "I have some concerns about {suspicious}...",
-        "Something doesn't add up with {suspicious}.",
-        "I'm not sure we can trust {suspicious}.",
-        "{suspicious} might not be who they seem."
-      ];
-      
-    case 'defense':
-      return [
-        "I'm a liberal! You have to believe me!",
-        "Check my voting record - I've been consistent!",
-        "This is exactly what the fascists want - liberals fighting!",
-        "I'm trying to help us win, not hurt us!"
-      ];
-      
-    default:
-      return ["I need to think about this..."];
+  const baseTemplates = {
+    nomination: [
+      "Let's think carefully about this nomination.",
+      "The choice of Chancellor is crucial right now.",
+      "We need someone we can trust in this position.",
+      "This decision could change everything.",
+      "Choose wisely, the fate of our nation depends on it.",
+      "We can't afford any mistakes with this nomination.",
+      "The next Chancellor must be someone reliable.",
+      "This is a pivotal moment for our government."
+    ],
+    voting: [
+      "I've made my decision on this vote.",
+      "Let's see how everyone votes on this.",
+      "Every vote matters here.",
+      "Think carefully before casting your votes.",
+      "The voting pattern will tell us a lot.",
+      "Choose wisely, this vote is important.",
+      "Let's make this vote count.",
+      "Your vote reveals your allegiance."
+    ],
+    'post-vote': [
+      "Interesting voting results...",
+      "The votes tell an interesting story.",
+      "Let's analyze these voting patterns.",
+      "Some surprising choices in that vote.",
+      "The voting results are quite revealing.",
+      "We can learn from how people voted.",
+      "Those votes might expose some allegiances.",
+      "The voting patterns are becoming clearer."
+    ],
+    'post-policy': [
+      "That policy changes things.",
+      "Let's consider what this policy means.",
+      "The board state is evolving.",
+      "This policy has interesting implications.",
+      "We need to adapt our strategy now.",
+      "That policy reveals something about our government.",
+      "Things are getting more intense with this policy.",
+      "The situation is becoming clearer with each policy."
+    ]
+  };
+
+  // Add personality-specific variations
+  if (aggressive && suspicious) {
+    return [
+      ...baseTemplates[context as keyof typeof baseTemplates],
+      "I don't trust {suspicious} at all!",
+      "Something's very wrong with this situation.",
+      "We're being played like fools!",
+      "Wake up! Can't you see what's happening?",
+      "This is exactly what the fascists want!",
+      "We need to act more aggressively!",
+      "{suspicious} is definitely hiding something.",
+      "Stop being so naive about what's happening!"
+    ];
+  } 
+  
+  if (cautious && trusting) {
+    return [
+      ...baseTemplates[context as keyof typeof baseTemplates],
+      "Let's not jump to conclusions.",
+      "I believe in {trusted}'s judgment.",
+      "We should consider all possibilities.",
+      "Maybe there's another explanation.",
+      "Let's work together to figure this out.",
+      "I think we're making progress.",
+      "We need to stay calm and think this through.",
+      "Trust is important, but verify everything."
+    ];
   }
+
+  if (isLiberal) {
+    return [
+      ...baseTemplates[context as keyof typeof baseTemplates],
+      "We must protect our democracy.",
+      "The liberals need to stay united.",
+      "Don't let the fascists divide us.",
+      "We're fighting for freedom here.",
+      "The truth will come out eventually.",
+      "Liberty must prevail over fascism.",
+      "We can't let fear control us.",
+      "Democracy is worth fighting for."
+    ];
+  }
+
+  // Default templates plus some neutral additions
+  return [
+    ...baseTemplates[context as keyof typeof baseTemplates],
+    "We need to think strategically.",
+    "The situation is getting interesting.",
+    "Let's see how this plays out.",
+    "Every action has consequences.",
+    "Time will reveal the truth.",
+    "We must adapt to survive.",
+    "The game is changing.",
+    "Interesting developments..."
+  ];
 }
 
 export function updateAIMemory(player: Player, gameState: GameState, event: string): Player {
@@ -175,7 +206,8 @@ export function updateAIMemory(player: Player, gameState: GameState, event: stri
     round: gameState.round,
     event,
     suspicions,
-    alliances
+    alliances,
+    messages: [] // Add messages array to track used templates
   };
   
   return {

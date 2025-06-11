@@ -12,6 +12,7 @@ export function LobbyScreen({ onStartGame, onBack }: LobbyScreenProps) {
   const [humanPlayerName, setHumanPlayerName] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [aiChatEnabled, setAiChatEnabled] = useState(true);
+  const [openAIKey, setOpenAIKey] = useState('');
 
   const handleStartGame = () => {
     if (!humanPlayerName.trim()) {
@@ -23,7 +24,8 @@ export function LobbyScreen({ onStartGame, onBack }: LobbyScreenProps) {
       playerCount,
       humanPlayerName: humanPlayerName.trim(),
       aiChatEnabled,
-      voiceChatEnabled: false
+      voiceChatEnabled: false,
+      openAIKey: openAIKey.trim() || undefined
     };
 
     onStartGame(config);
@@ -129,6 +131,23 @@ export function LobbyScreen({ onStartGame, onBack }: LobbyScreenProps) {
                     />
                     <span className="text-gray-300">AI Live Chat (Experimental)</span>
                   </label>
+                  
+                  {aiChatEnabled && (
+                    <div className="space-y-2">
+                      <label className="block text-sm text-gray-300">OpenAI API Key (Optional)</label>
+                      <input
+                        type="password"
+                        value={openAIKey}
+                        onChange={(e) => setOpenAIKey(e.target.value)}
+                        placeholder="sk-..."
+                        className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none text-sm"
+                      />
+                      <p className="text-sm text-gray-500">
+                        Add your OpenAI API key to enable more sophisticated AI responses. 
+                        Without a key, AI will use pre-written responses.
+                      </p>
+                    </div>
+                  )}
                   
                   <p className="text-sm text-gray-500">
                     Enable real-time chat with AI players during discussion phases. 

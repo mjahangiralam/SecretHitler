@@ -46,6 +46,7 @@ export interface GameMemory {
   event: string;
   suspicions: Record<string, number>;
   alliances: Record<string, number>;
+  messages: string[];
 }
 
 export interface GameState {
