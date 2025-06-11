@@ -262,34 +262,48 @@ export function simulateAIVote(player: Player, gameState: GameState): 'ja' | 'ne
   if (!president || !chancellor) return 'nein';
   
   let voteScore = 0.5; // Neutral starting point
-  
-  // Role-based voting
-  if (player.role === 'liberal') {
-    // Liberals are cautious about fascist governments
-    if (president.role !== 'liberal' || chancellor.role !== 'liberal') {
-      voteScore -= 0.3;
+
+  // Early game bias (rounds 1-4)
+  if (gameState.round <= 4) {
+    voteScore += 0.3; // Strong bias towards 'ja' in early rounds
+    // Even stronger bias in first two rounds
+    if (gameState.round <= 2) {
+      voteScore += 0.1;
     }
-    // Extra cautious about Hitler as Chancellor if 3+ fascist policies
-    if (chancellor.role === 'hitler' && gameState.fascistPolicies >= 3) {
-      voteScore -= 0.8;
+    // Add some personality-based variation to early game voting
+    voteScore += (traits.trustLevel - 0.5) * 0.1;
+  } else {
+    // Role-based voting (existing logic for later rounds)
+    if (player.role === 'liberal') {
+      // Liberals are cautious about fascist governments
+      if (president.role !== 'liberal' || chancellor.role !== 'liberal') {
+        voteScore -= 0.3;
+      }
+      // Extra cautious about Hitler as Chancellor if 3+ fascist policies
+      if (chancellor.role === 'hitler' && gameState.fascistPolicies >= 3) {
+        voteScore -= 0.8;
+      }
+    } else if (player.role === 'fascist') {
+      // Fascists support other fascists
+      if (president.role !== 'liberal' || chancellor.role !== 'liberal') {
+        voteScore += 0.4;
+      }
+      // Help Hitler become Chancellor when ready
+      if (chancellor.role === 'hitler' && gameState.fascistPolicies >= 3) {
+        voteScore += 0.6;
+      }
+    } else if (player.role === 'hitler') {
+      // Hitler plays carefully
+      voteScore += traits.deceptionSkill * 0.2;
     }
-  } else if (player.role === 'fascist') {
-    // Fascists support other fascists
-    if (president.role !== 'liberal' || chancellor.role !== 'liberal') {
-      voteScore += 0.4;
-    }
-    // Help Hitler become Chancellor when ready
-    if (chancellor.role === 'hitler' && gameState.fascistPolicies >= 3) {
-      voteScore += 0.6;
-    }
-  } else if (player.role === 'hitler') {
-    // Hitler plays carefully
-    voteScore += traits.deceptionSkill * 0.2;
+    
+    // Personality adjustments for later rounds
+    voteScore += (traits.trustLevel - 0.5) * 0.3;
   }
-  
-  // Personality adjustments
-  voteScore += (traits.trustLevel - 0.5) * 0.3;
-  voteScore += (Math.random() - 0.5) * 0.2; // Some randomness
+
+  // Always add some randomness, but less in early game
+  const randomFactor = gameState.round <= 4 ? 0.1 : 0.2;
+  voteScore += (Math.random() - 0.5) * randomFactor;
   
   return voteScore > 0.5 ? 'ja' : 'nein';
 }

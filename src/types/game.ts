@@ -7,6 +7,7 @@ export type GamePhase =
   | 'nomination' 
   | 'voting' 
   | 'legislative' 
+  | 'policy-boards'
   | 'discussion' 
   | 'special-power' 
   | 'game-over';

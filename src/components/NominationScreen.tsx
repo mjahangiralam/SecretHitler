@@ -32,19 +32,40 @@ export function NominationScreen({ gameState, onNominate, onContinue }: Nominati
   // Auto-nominate for AI president
   React.useEffect(() => {
     if (!isHumanPresident && !gameState.chancellor) {
+      console.log('AI President is selecting a chancellor...');
+      
+      // Verify we have eligible players
+      if (eligiblePlayers.length === 0) {
+        console.error('No eligible players for chancellor nomination!');
+        return;
+      }
+
       // AI president makes nomination after a delay
-      const delay = 2000 + Math.random() * 3000;
+      const delay = 2000 + Math.random() * 2000; // Reduced max delay
       const timer = setTimeout(() => {
-        const eligibleIds = eligiblePlayers.map(p => p.id);
-        if (eligibleIds.length > 0) {
+        try {
+          const eligibleIds = eligiblePlayers.map(p => p.id);
           const choice = eligibleIds[Math.floor(Math.random() * eligibleIds.length)];
+          console.log(`AI President nominating chancellor: ${choice}`);
           onNominate(choice);
+          
+          // Verify nomination happened
+          const verificationTimer = setTimeout(() => {
+            if (!gameState.chancellor) {
+              console.error('Chancellor nomination failed, retrying...');
+              onNominate(choice); // Retry once
+            }
+          }, 1000);
+          
+          return () => clearTimeout(verificationTimer);
+        } catch (error) {
+          console.error('Error during AI chancellor nomination:', error);
         }
       }, delay);
       
       return () => clearTimeout(timer);
     }
-  }, [isHumanPresident, gameState.chancellor, eligiblePlayers, onNominate]);
+  }, [isHumanPresident, gameState.chancellor, eligiblePlayers, onNominate, gameState]);
 
   // If chancellor is already nominated, show confirmation
   if (gameState.chancellor) {

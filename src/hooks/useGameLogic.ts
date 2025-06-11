@@ -156,6 +156,27 @@ export function useGameLogic() {
           return { ...prev, phase: 'discussion' };
         case 'special-power':
           return { ...prev, phase: 'discussion', availablePower: null };
+        case 'policy-boards':
+          // Check if there's a special power to use
+          const fascistPowerSlots = [3, 4, 5];
+          if (fascistPowerSlots.includes(prev.fascistPolicies)) {
+            const playerCount = prev.players.length as 5 | 7 | 9; // Type assertion since we know it's valid
+            const powerSlot = prev.fascistPolicies as 1 | 2 | 3 | 4 | 5; // Type assertion for valid slots
+            const power = FASCIST_POWERS[playerCount]?.[powerSlot];
+            
+            if (power) {
+              return {
+                ...prev,
+                phase: 'special-power',
+                availablePower: power
+              };
+            }
+          }
+          // If no special power, go to discussion
+          return {
+            ...prev,
+            phase: 'discussion'
+          };
         case 'discussion':
           // Move to next round
           const currentPresIndex2 = prev.players.findIndex(p => p.id === prev.president);
@@ -212,7 +233,8 @@ export function useGameLogic() {
         ...newState,
         discardPile: [...prev.discardPile, discarded],
         presidentialDraw: [],
-        chancellorChoice: []
+        chancellorChoice: [],
+        phase: 'policy-boards'
       };
     });
   }, []);

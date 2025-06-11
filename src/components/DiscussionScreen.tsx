@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GameState, GameConfig, ChatMessage } from '../types/game';
-import { MessageSquare, Send, Users, Clock } from 'lucide-react';
+import { MessageSquare, Send, Users, Clock, User, FastForward } from 'lucide-react';
 import { generateAIMessage } from '../utils/aiUtils';
 
 interface DiscussionScreenProps {
@@ -127,104 +127,108 @@ export function DiscussionScreen({ gameState, config, onContinue }: DiscussionSc
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
       <div className="max-w-4xl mx-auto h-screen flex flex-col">
-        {/* Header */}
-        <div className="text-center mb-6 pt-8">
-          <MessageSquare className="w-12 h-12 text-green-500 mx-auto mb-4" />
+        {/* Header with Skip Button */}
+        <div className="text-center mb-4 relative">
+          <MessageSquare className="w-12 h-12 text-blue-500 mx-auto mb-2" />
           <h1 className="text-3xl font-bold text-white mb-2">Discussion Phase</h1>
-          <p className="text-gray-400">{getLastAction()}</p>
+          <p className="text-gray-400">
+            Round {gameState.round} - {formatTime(timer)}
+          </p>
+          
+          {/* Skip Button */}
+          <button
+            onClick={onContinue}
+            className="absolute right-0 top-1/2 -translate-y-1/2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg flex items-center space-x-2 transition-colors duration-300"
+          >
+            <FastForward className="w-4 h-4" />
+            <span>Skip</span>
+          </button>
         </div>
 
-        {/* Timer and Game State */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-black bg-opacity-40 border border-gray-700 rounded-lg p-4 text-center">
-            <Clock className="w-6 h-6 text-blue-400 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-white">{formatTime(timer)}</div>
-            <div className="text-sm text-gray-400">Time Remaining</div>
+        {/* Policy Counters */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="bg-blue-900 bg-opacity-40 border border-blue-700 rounded-lg p-3 text-center">
+            <div className="text-blue-400 text-lg font-bold mb-1">{gameState.liberalPolicies}/5</div>
+            <div className="text-sm text-gray-300">Liberal Policies</div>
           </div>
           
-          <div className="bg-black bg-opacity-40 border border-gray-700 rounded-lg p-4 text-center">
-            <div className="text-blue-400 text-lg font-bold">{gameState.liberalPolicies}/5</div>
-            <div className="text-sm text-gray-400">Liberal Policies</div>
-          </div>
-          
-          <div className="bg-black bg-opacity-40 border border-gray-700 rounded-lg p-4 text-center">
-            <div className="text-red-400 text-lg font-bold">{gameState.fascistPolicies}/6</div>
-            <div className="text-sm text-gray-400">Fascist Policies</div>
+          <div className="bg-red-900 bg-opacity-40 border border-red-700 rounded-lg p-3 text-center">
+            <div className="text-red-400 text-lg font-bold mb-1">{gameState.fascistPolicies}/6</div>
+            <div className="text-sm text-gray-300">Fascist Policies</div>
           </div>
         </div>
 
-        {/* Chat Area */}
-        <div className="flex-1 bg-black bg-opacity-40 border border-gray-700 rounded-xl p-4 flex flex-col">
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto mb-4 space-y-3">
-            {messages.length === 0 && (
-              <div className="text-center text-gray-500 py-8">
-                <Users className="w-8 h-8 mx-auto mb-2" />
-                <p>Discussion will begin shortly...</p>
-                {!config.aiChatEnabled && (
-                  <p className="text-sm mt-2">AI chat is disabled. You can still send messages.</p>
-                )}
-              </div>
-            )}
-            
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.isAI ? 'justify-start' : 'justify-end'}`}
-              >
-                <div
-                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.isAI
-                      ? 'bg-gray-700 text-white'
-                      : 'bg-blue-600 text-white'
-                  }`}
-                >
-                  <div className="font-semibold text-sm mb-1">
-                    {message.playerName}
-                    {!message.isAI && <span className="text-green-300 ml-1">(You)</span>}
+        {/* Messages Container - Fixed height with scroll */}
+        <div className="flex-grow bg-black bg-opacity-40 border border-gray-700 rounded-xl p-4 mb-4 overflow-hidden flex flex-col">
+          <div className="overflow-y-auto flex-grow" style={{ maxHeight: 'calc(100vh - 300px)' }}>
+            <div className="space-y-4">
+              {messages.map((message) => {
+                const player = gameState.players.find(p => p.id === message.playerId);
+                const isHuman = player?.isHuman;
+                
+                return (
+                  <div 
+                    key={message.id}
+                    className={`flex items-start space-x-3 ${isHuman ? 'justify-end' : ''}`}
+                  >
+                    {!isHuman && (
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+                          <User className="w-4 h-4 text-gray-300" />
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className={`flex flex-col ${isHuman ? 'items-end' : 'items-start'}`}>
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className="text-sm text-gray-400">{message.playerName}</span>
+                        {isHuman && <span className="text-xs text-green-400">(You)</span>}
+                      </div>
+                      
+                      <div 
+                        className={`rounded-lg px-4 py-2 max-w-md break-words ${
+                          isHuman 
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-gray-700 text-gray-100'
+                        }`}
+                      >
+                        {message.message}
+                      </div>
+                    </div>
+                    
+                    {isHuman && (
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+                          <User className="w-4 h-4 text-white" />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-sm">{message.message}</div>
-                </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
+                );
+              })}
+            </div>
           </div>
+        </div>
 
-          {/* Message Input */}
-          <div className="flex space-x-2">
+        {/* Input Area */}
+        <div className="bg-black bg-opacity-40 border border-gray-700 rounded-xl p-4">
+          <div className="flex space-x-4">
             <input
               type="text"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
               placeholder="Type your message..."
-              className="flex-1 px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
-              maxLength={200}
+              className="flex-grow bg-gray-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               onClick={handleSendMessage}
               disabled={!inputMessage.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-300"
             >
-              <Send className="w-4 h-4" />
+              Send
             </button>
           </div>
-        </div>
-
-        {/* Continue Button */}
-        <div className="text-center mt-6">
-          <button
-            onClick={onContinue}
-            className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold rounded-lg hover:from-green-500 hover:to-green-600 transition-all duration-300"
-          >
-            {timer > 0 ? 'Skip Discussion' : 'Continue Game'}
-          </button>
-          
-          {timer > 0 && (
-            <p className="text-gray-500 text-sm mt-2">
-              Or wait for the timer to finish
-            </p>
-          )}
         </div>
       </div>
     </div>

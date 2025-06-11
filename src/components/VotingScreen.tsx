@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GameState, Vote } from '../types/game';
-import { Vote as VoteIcon, ThumbsUp, ThumbsDown, Clock } from 'lucide-react';
+import { Vote as VoteIcon, ThumbsUp, ThumbsDown, Clock, CheckCircle } from 'lucide-react';
 
 interface VotingScreenProps {
   gameState: GameState;
@@ -40,14 +40,9 @@ export function VotingScreen({ gameState, onVote, onContinue }: VotingScreenProp
   }, [allVotesCast, showResults]);
 
   const getVoteDisplay = (playerId: string) => {
-    const vote = gameState.votes[playerId];
-    if (!vote) return <Clock className="w-4 h-4 text-gray-500" />;
-    
-    return vote === 'ja' ? (
-      <ThumbsUp className="w-4 h-4 text-green-500" />
-    ) : (
-      <ThumbsDown className="w-4 h-4 text-red-500" />
-    );
+    const hasVoted = gameState.votes[playerId] !== undefined;
+    if (!hasVoted) return <Clock className="w-4 h-4 text-gray-500" />;
+    return <CheckCircle className="w-4 h-4 text-green-500" />;
   };
 
   if (showResults) {
@@ -72,47 +67,24 @@ export function VotingScreen({ gameState, onVote, onContinue }: VotingScreenProp
             </div>
 
             {/* Vote Tallies */}
-            <div className="grid grid-cols-2 gap-6 mb-8">
-              <div className={`p-6 rounded-lg border-2 ${votePassed ? 'border-green-500 bg-green-900 bg-opacity-20' : 'border-gray-600 bg-gray-800 bg-opacity-40'}`}>
-                <ThumbsUp className="w-8 h-8 text-green-400 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-white">{jaVotes}</div>
-                <div className="text-green-400 font-semibold">JA</div>
+            <div className="bg-gray-900 bg-opacity-50 rounded-lg p-6 mb-8">
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div>
+                  <div className="text-green-400 text-2xl font-bold mb-2">{jaVotes}</div>
+                  <div className="text-gray-400">Ja Votes</div>
+                </div>
+                <div>
+                  <div className="text-red-400 text-2xl font-bold mb-2">{neinVotes}</div>
+                  <div className="text-gray-400">Nein Votes</div>
+                </div>
               </div>
               
-              <div className={`p-6 rounded-lg border-2 ${!votePassed ? 'border-red-500 bg-red-900 bg-opacity-20' : 'border-gray-600 bg-gray-800 bg-opacity-40'}`}>
-                <ThumbsDown className="w-8 h-8 text-red-400 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-white">{neinVotes}</div>
-                <div className="text-red-400 font-semibold">NEIN</div>
-              </div>
-            </div>
-
-            {/* Result */}
-            <div className={`p-6 rounded-lg border-2 mb-8 ${
-              votePassed 
-                ? 'border-green-500 bg-green-900 bg-opacity-20' 
-                : 'border-red-500 bg-red-900 bg-opacity-20'
-            }`}>
-              <div className={`text-2xl font-bold mb-2 ${votePassed ? 'text-green-400' : 'text-red-400'}`}>
-                {votePassed ? 'GOVERNMENT APPROVED' : 'GOVERNMENT REJECTED'}
-              </div>
-              <div className="text-gray-300">
-                {votePassed 
-                  ? 'The President and Chancellor will now enact a policy'
-                  : `Election tracker advances. ${gameState.electionTracker + 1}/3 failed elections`
-                }
-              </div>
-            </div>
-
-            {/* Individual Votes */}
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-white mb-4">Individual Votes:</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {alivePlayers.map((player) => (
-                  <div key={player.id} className="bg-gray-800 bg-opacity-40 p-3 rounded-lg flex items-center justify-between">
-                    <span className="text-white text-sm">{player.name}</span>
-                    {getVoteDisplay(player.id)}
-                  </div>
-                ))}
+              <div className="mt-6 text-xl font-bold">
+                {votePassed ? (
+                  <div className="text-green-400">Government Approved!</div>
+                ) : (
+                  <div className="text-red-400">Government Rejected</div>
+                )}
               </div>
             </div>
 
@@ -163,8 +135,8 @@ export function VotingScreen({ gameState, onVote, onContinue }: VotingScreenProp
           </div>
         </div>
 
-        {/* Voting Interface */}
-        {!hasVoted && humanPlayer && (
+        {/* Voting Interface for Human Player */}
+        {humanPlayer && !hasVoted && (
           <div className="mb-8">
             <div className="text-center mb-6">
               <h3 className="text-xl font-semibold text-white mb-2">Your Vote</h3>
@@ -193,30 +165,19 @@ export function VotingScreen({ gameState, onVote, onContinue }: VotingScreenProp
           </div>
         )}
 
-        {/* Vote Progress */}
-        <div className="bg-black bg-opacity-40 border border-gray-700 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white">Vote Progress</h3>
-            <div className="text-gray-400">
-              {totalVotes}/{requiredVotes} votes cast
-            </div>
-          </div>
-          
-          <div className="w-full bg-gray-700 rounded-full h-3 mb-6">
-            <div 
-              className="bg-blue-500 h-3 rounded-full transition-all duration-500"
-              style={{ width: `${(totalVotes / requiredVotes) * 100}%` }}
-            ></div>
-          </div>
-
-          {/* Player Vote Status */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {alivePlayers.map((player) => (
-              <div key={player.id} className="bg-gray-800 bg-opacity-40 p-3 rounded-lg flex items-center justify-between">
-                <span className="text-white text-sm">
-                  {player.name}
-                  {player.isHuman && <span className="text-green-400 ml-1">(You)</span>}
-                </span>
+        {/* Voting Status */}
+        <div className="bg-black bg-opacity-40 border border-gray-700 rounded-xl p-6 mb-8">
+          <h3 className="text-xl font-semibold text-white mb-4 text-center">Voting Status</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {gameState.players.filter(p => p.isAlive).map((player) => (
+              <div 
+                key={player.id}
+                className="bg-gray-800 bg-opacity-40 rounded-lg p-3 flex items-center justify-between"
+              >
+                <div>
+                  <div className="text-white font-semibold">{player.name}</div>
+                  {player.isHuman && <div className="text-green-400 text-xs">(You)</div>}
+                </div>
                 {getVoteDisplay(player.id)}
               </div>
             ))}

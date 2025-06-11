@@ -7,6 +7,7 @@ import { LegislativeScreen } from './LegislativeScreen';
 import { DiscussionScreen } from './DiscussionScreen';
 import { SpecialPowerScreen } from './SpecialPowerScreen';
 import { GameOverScreen } from './GameOverScreen';
+import { PolicyBoardsScreen } from './PolicyBoardsScreen';
 import { simulateAIVote, updateAIMemory } from '../utils/aiUtils';
 
 interface GameScreenProps {
@@ -90,6 +91,14 @@ export function GameScreen({
           gameState={gameState}
           onPresidentialAction={onPresidentialAction}
           onChancellorAction={onChancellorAction}
+          onContinue={onNextPhase}
+        />
+      );
+
+    case 'policy-boards':
+      return (
+        <PolicyBoardsScreen
+          gameState={gameState}
           onContinue={onNextPhase}
         />
       );
