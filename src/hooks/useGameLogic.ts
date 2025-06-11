@@ -212,10 +212,21 @@ export function useGameLogic() {
 
   const presidentialAction = useCallback((discardedPolicy: Policy) => {
     setGameState(prev => {
-      const remaining = prev.presidentialDraw.filter(p => p !== discardedPolicy || prev.presidentialDraw.indexOf(p) !== prev.presidentialDraw.findIndex(pol => pol === discardedPolicy));
+      // Find the first occurrence of the discarded policy
+      const discardIndex = prev.presidentialDraw.indexOf(discardedPolicy);
+      
+      // Create the chancellor's choices by removing only the first occurrence of the discarded policy
+      const chancellorChoice = prev.presidentialDraw.filter((p, index) => index !== discardIndex);
+      
+      console.log('Presidential action:', {
+        originalDraw: prev.presidentialDraw,
+        discarded: discardedPolicy,
+        remainingForChancellor: chancellorChoice
+      });
+
       return {
         ...prev,
-        chancellorChoice: remaining,
+        chancellorChoice,
         discardPile: [...prev.discardPile, discardedPolicy]
       };
     });
