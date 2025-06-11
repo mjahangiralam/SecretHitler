@@ -29,6 +29,7 @@ function App() {
   };
 
   const handleContinueFromRoleReveal = () => {
+    nextPhase();
     setCurrentScreen('game');
   };
 
