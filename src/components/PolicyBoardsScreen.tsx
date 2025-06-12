@@ -85,7 +85,7 @@ export function PolicyBoardsScreen({ gameState, onContinue }: PolicyBoardsScreen
               <h2 className="text-2xl font-bold text-blue-400 mb-2">Liberal Policies</h2>
               <p className="text-gray-400">5 policies needed to win</p>
             </div>
-            
+
             <div className="flex justify-center gap-3 mb-4">
               {[...Array(5)].map((_, i) => renderPolicySlot(i < gameState.liberalPolicies, false))}
             </div>

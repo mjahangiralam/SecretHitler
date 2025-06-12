@@ -87,6 +87,12 @@ export interface GameState {
   // Chat
   chatMessages: ChatMessage[];
   discussionTimer: number;
+  
+  // New properties
+  drawPile: Policy[];
+  failedVotes: number;
+  usedPowers: SpecialPower[];
+  policyPeekCards: Policy[] | null;
 }
 
 export interface ChatMessage {

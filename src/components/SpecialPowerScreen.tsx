@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { GameState, SpecialPower } from '../types/game';
-import { Eye, Vote, Zap, Skull } from 'lucide-react';
+import { Eye, Vote, Zap, Skull, Search } from 'lucide-react';
 
 interface SpecialPowerScreenProps {
   gameState: GameState;
@@ -53,27 +53,34 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
     switch (power) {
       case 'investigate-loyalty':
         return gameState.players.filter(p => 
-          p.id !== gameState.president && 
-          p.isAlive && 
-          !gameState.investigationResults[p.id]
-        );
-      case 'special-election':
-        return gameState.players.filter(p => 
-          p.id !== gameState.president && 
-          p.isAlive
+          p.id !== gameState.president && // Can't investigate self
+          p.isAlive && // Must be alive
+          !gameState.investigationResults[p.id] // Haven't been investigated before
         );
       case 'execution':
         return gameState.players.filter(p => 
-          p.id !== gameState.president && 
-          p.isAlive
+          p.id !== gameState.president && // Can't kill self
+          p.isAlive // Must be alive
         );
-      case 'policy-peek':
-        return []; // No target needed
+      case 'special-election':
+        return gameState.players.filter(p => 
+          p.id !== gameState.president && // Can't elect self
+          p.isAlive // Must be alive
+        );
+      default:
+        return [];
     }
   };
 
+  const deadPlayers = gameState.players.filter(p => !p.isAlive);
+  const investigatedPlayers = Object.entries(gameState.investigationResults).map(([id, role]) => ({
+    player: gameState.players.find(p => p.id === id)!,
+    role
+  }));
+
   const handleUsePower = () => {
     if (!power) return;
+    console.log('Using power:', power, 'on target:', selectedTarget);
 
     if (power === 'policy-peek') {
       // Simulate policy peek
@@ -81,6 +88,10 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
       setPolicyPeekResult(nextPolicies);
       setPowerUsed(true);
       onUsePower();
+      // Add delay before continuing for AI
+      if (!isHumanPresident) {
+        setTimeout(() => onContinue(), 2000);
+      }
     } else if (selectedTarget) {
       if (power === 'investigate-loyalty') {
         const target = gameState.players.find(p => p.id === selectedTarget);
@@ -92,28 +103,52 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
       
       setPowerUsed(true);
       onUsePower(selectedTarget);
+      
+      // For AI, continue after showing the result briefly
+      if (!isHumanPresident) {
+        setTimeout(() => onContinue(), 2000);
+      }
     }
   };
 
   // Auto-use power for AI president
   React.useEffect(() => {
     if (!isHumanPresident && !powerUsed && power) {
+      console.log('AI President using special power:', power);
+      
       const timer = setTimeout(() => {
         if (power === 'policy-peek') {
+          console.log('AI using policy peek power');
           handleUsePower();
         } else {
-          const eligibleTargets = getEligibleTargets();
-          if (eligibleTargets.length > 0) {
-            const randomTarget = eligibleTargets[Math.floor(Math.random() * eligibleTargets.length)];
+          const targets = getEligibleTargets() || [];
+          console.log('Eligible targets for power:', targets.map(p => p.name));
+          
+          if (targets.length > 0) {
+            const randomTarget = targets[Math.floor(Math.random() * targets.length)];
+            console.log('AI selected target:', randomTarget.name);
             setSelectedTarget(randomTarget.id);
-            setTimeout(() => handleUsePower(), 1000);
+            
+            // Add a delay before using the power
+            setTimeout(() => {
+              console.log('AI executing power on target');
+              handleUsePower();
+              // Add a delay before continuing
+              setTimeout(() => {
+                console.log('AI continuing after power use');
+                onContinue();
+              }, 1000);
+            }, 1000);
+          } else {
+            console.log('No eligible targets for power, continuing');
+            onContinue();
           }
         }
-      }, 3000);
+      }, 2000);
       
       return () => clearTimeout(timer);
     }
-  }, [isHumanPresident, powerUsed, power]);
+  }, [isHumanPresident, powerUsed, power, handleUsePower, onContinue]);
 
   if (!power) {
     return (
@@ -133,7 +168,7 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
 
   const PowerIcon = getPowerIcon(power);
   const powerColor = getPowerColor(power);
-  const eligibleTargets = getEligibleTargets();
+  const targets = getEligibleTargets() || [];
 
   // Show results
   if (powerUsed) {
@@ -210,6 +245,253 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
     );
   }
 
+  // Show investigation results
+  if (power === 'investigate-loyalty' && powerUsed && selectedTarget) {
+    const targetPlayer = gameState.players.find(p => p.id === selectedTarget);
+    const result = gameState.investigationResults[selectedTarget];
+    
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8 pt-8">
+            <Search className="w-12 h-12 text-blue-500 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-white mb-2">Investigation Results</h1>
+            <p className="text-gray-400">You have learned {targetPlayer?.name}'s loyalty</p>
+          </div>
+
+          <div className="bg-black bg-opacity-40 border border-gray-700 rounded-xl p-8 mb-8">
+            <div className="text-center mb-6">
+              <div className="text-2xl font-bold mb-2">
+                <span className="text-white">{targetPlayer?.name} is a </span>
+                <span className={result === 'liberal' ? 'text-blue-400' : 'text-red-400'}>
+                  {result === 'liberal' ? 'Liberal' : 'Fascist'}
+                </span>
+              </div>
+              <p className="text-gray-400">Keep this information secret!</p>
+            </div>
+
+            <div className="flex justify-center">
+              <div className={`w-64 h-96 rounded-xl border-4 transform transition-all duration-500 ${
+                result === 'liberal' 
+                  ? 'border-blue-500 bg-gradient-to-br from-blue-900 to-blue-800' 
+                  : 'border-red-500 bg-gradient-to-br from-red-900 to-red-800'
+              }`}>
+                <div className="p-4 text-center">
+                  <div className="text-xl font-bold text-white mb-2">{targetPlayer?.name}</div>
+                  <div className={`text-lg font-semibold ${
+                    result === 'liberal' ? 'text-blue-300' : 'text-red-300'
+                  }`}>
+                    {result === 'liberal' ? 'Liberal' : 'Fascist'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <button
+              onClick={onContinue}
+              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:from-blue-500 hover:to-blue-600 transition-all duration-300"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show player selection for investigation
+  if (power === 'investigate-loyalty' && !powerUsed) {
+    const eligibleTargets = getEligibleTargets();
+    const previouslyInvestigated = investigatedPlayers.filter(({ player }) => player.isAlive);
+    
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8 pt-8">
+            <Search className="w-12 h-12 text-blue-500 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-white mb-2">Investigate Loyalty</h1>
+            <p className="text-gray-400">Select a player to investigate their loyalty</p>
+          </div>
+
+          {/* Eligible Players */}
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold text-white mb-4">Available Players:</h3>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {eligibleTargets.map((player) => (
+                <button
+                  key={player.id}
+                  onClick={() => setSelectedTarget(player.id)}
+                  className={`p-4 rounded-lg border-2 transition-all duration-300 ${
+                    selectedTarget === player.id
+                      ? 'border-blue-500 bg-blue-900 bg-opacity-40 shadow-lg transform scale-105'
+                      : 'border-gray-600 bg-gray-800 bg-opacity-40 hover:border-gray-500'
+                  }`}
+                >
+                  <div className="text-center">
+                    <div className="text-white font-semibold mb-1">{player.name}</div>
+                    {!player.isHuman && player.personality && (
+                      <div className="text-xs text-gray-400">{player.personality.name}</div>
+                    )}
+                    {player.isHuman && <div className="text-xs text-green-400">(You)</div>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Previously Investigated */}
+          {previouslyInvestigated.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold text-blue-400 mb-4">Previously Investigated:</h3>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {previouslyInvestigated.map(({ player, role }) => (
+                  <div
+                    key={player.id}
+                    className={`p-4 rounded-lg border-2 ${
+                      role === 'liberal' 
+                        ? 'border-blue-900 bg-blue-900 bg-opacity-20' 
+                        : 'border-red-900 bg-red-900 bg-opacity-20'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="text-white font-semibold mb-1">{player.name}</div>
+                      <div className={`text-sm ${role === 'liberal' ? 'text-blue-400' : 'text-red-400'}`}>
+                        {role === 'liberal' ? 'Liberal' : 'Fascist'}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Dead Players */}
+          {deadPlayers.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold text-red-400 mb-4">Dead Players:</h3>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {deadPlayers.map((player) => (
+                  <div
+                    key={player.id}
+                    className="p-4 rounded-lg border-2 border-red-900 bg-red-900 bg-opacity-20 opacity-50"
+                  >
+                    <div className="text-center">
+                      <div className="text-gray-400 font-semibold mb-1 line-through">{player.name}</div>
+                      {!player.isHuman && player.personality && (
+                        <div className="text-xs text-gray-500">{player.personality.name}</div>
+                      )}
+                      {player.isHuman && <div className="text-xs text-gray-500">(You)</div>}
+                      <div className="text-xs text-red-400 mt-1">Eliminated</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Investigation Button */}
+          {selectedTarget && (
+            <div className="text-center">
+              <button
+                onClick={handleUsePower}
+                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:from-blue-500 hover:to-blue-600 transition-all duration-300"
+              >
+                Investigate {gameState.players.find(p => p.id === selectedTarget)?.name}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Show policy peek results
+  if (power === 'policy-peek' && gameState.policyPeekCards) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8 pt-8">
+            <Eye className="w-12 h-12 text-blue-500 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-white mb-2">Top Three Policies</h1>
+            <p className="text-gray-400">These are the next three policies in the draw pile</p>
+          </div>
+
+          <div className="bg-black bg-opacity-40 border border-gray-700 rounded-xl p-8 mb-8">
+            <div className="flex justify-center space-x-8">
+              {gameState.policyPeekCards.map((policy, index) => (
+                <div
+                  key={index}
+                  className={`w-48 h-72 rounded-xl border-4 transform transition-all duration-500 ${
+                    policy === 'liberal' 
+                      ? 'border-blue-500 bg-gradient-to-br from-blue-900 to-blue-800' 
+                      : 'border-red-500 bg-gradient-to-br from-red-900 to-red-800'
+                  }`}
+                >
+                  <div className="p-4 text-center">
+                    <div className={`text-2xl font-bold ${
+                      policy === 'liberal' ? 'text-blue-300' : 'text-red-300'
+                    }`}>
+                      {policy === 'liberal' ? 'Liberal' : 'Fascist'} Policy
+                    </div>
+                    <div className="text-white text-sm mt-2">Card {index + 1} of 3</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="text-center mt-8">
+              <p className="text-gray-400 mb-4">Keep this information secret!</p>
+              <button
+                onClick={onContinue}
+                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:from-blue-500 hover:to-blue-600 transition-all duration-300"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show policy peek action for AI
+  if (power === 'policy-peek' && !powerUsed) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8 pt-8">
+            <Eye className="w-12 h-12 text-blue-500 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-white mb-2">Policy Peek</h1>
+            <p className="text-gray-400">
+              {isHumanPresident ? 'View the next three policies' : `${president?.name} is peeking at the next three policies...`}
+            </p>
+          </div>
+
+          {isHumanPresident ? (
+            <div className="text-center">
+              <button
+                onClick={handleUsePower}
+                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:from-blue-500 hover:to-blue-600 transition-all duration-300"
+              >
+                Peek at Policies
+              </button>
+            </div>
+          ) : (
+            <div className="text-center">
+              <div className="animate-pulse">
+                <div className="w-16 h-16 bg-gray-700 rounded-full mx-auto mb-4"></div>
+                <div className="w-48 h-4 bg-gray-700 rounded mx-auto"></div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Default special power screen for other powers
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
       <div className="max-w-4xl mx-auto">
@@ -245,13 +527,13 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
         {isHumanPresident ? (
           <>
             {/* Target Selection */}
-            {eligibleTargets.length > 0 && (
+            {targets.length > 0 && (
               <div className="mb-8">
                 <h3 className="text-xl font-semibold text-white mb-4">
                   Select Target:
                 </h3>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {eligibleTargets.map((player) => (
+                  {targets.map((player) => (
                     <button
                       key={player.id}
                       onClick={() => setSelectedTarget(player.id)}
@@ -278,7 +560,7 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
             <div className="text-center">
               <button
                 onClick={handleUsePower}
-                disabled={eligibleTargets.length > 0 && !selectedTarget}
+                disabled={targets.length > 0 && !selectedTarget}
                 className={`px-8 py-3 bg-gradient-to-r from-${powerColor}-600 to-${powerColor}-700 text-white font-bold text-lg rounded-lg shadow-xl hover:from-${powerColor}-500 hover:to-${powerColor}-600 transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
               >
                 Use Power
