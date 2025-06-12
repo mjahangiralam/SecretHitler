@@ -58,19 +58,6 @@ export function NominationScreen({ gameState, onNominate, onContinue }: Nominati
           }
           
           onNominate(choice);
-          
-          // Verify nomination happened and move to next phase if successful
-          const verificationTimer = setTimeout(() => {
-            if (!gameState.chancellor) {
-              console.error('Chancellor nomination failed, retrying...');
-              onNominate(choice);
-            } else {
-              console.log('Nomination successful, continuing...');
-              onContinue();
-            }
-          }, 1000);
-          
-          return () => clearTimeout(verificationTimer);
         } catch (error) {
           console.error('Error during AI chancellor nomination:', error);
         }
@@ -78,7 +65,19 @@ export function NominationScreen({ gameState, onNominate, onContinue }: Nominati
       
       return () => clearTimeout(timer);
     }
-  }, [isHumanPresident, gameState.chancellor, eligiblePlayers, onNominate, onContinue, gameState.players, president]);
+  }, [isHumanPresident, gameState.chancellor, eligiblePlayers, onNominate, gameState.players, president]);
+
+  // Separate effect to handle continuing after chancellor is nominated (for AI president)
+  React.useEffect(() => {
+    if (!isHumanPresident && gameState.chancellor) {
+      console.log('Chancellor nominated, continuing to vote...');
+      const continueTimer = setTimeout(() => {
+        onContinue();
+      }, 1500);
+      
+      return () => clearTimeout(continueTimer);
+    }
+  }, [isHumanPresident, gameState.chancellor, onContinue]);
 
   // If chancellor is already nominated, show confirmation
   if (gameState.chancellor) {
