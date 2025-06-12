@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Player } from '../types/game';
-import { Shield, Eye, EyeOff, Users } from 'lucide-react';
+import { Player, GameConfig } from '../types/game';
+import { Shield, Eye, EyeOff, Users, Volume2 } from 'lucide-react';
+import { playElevenLabsAudio, getRoleNarrationText, isElevenLabsEnabled } from '../utils/audioUtils';
 
 interface RoleRevealScreenProps {
   humanPlayer: Player;
   allPlayers: Player[];
   playerCount: number;
+  config: GameConfig;
   onContinue: () => void;
 }
 
-export function RoleRevealScreen({ humanPlayer, allPlayers, playerCount, onContinue }: RoleRevealScreenProps) {
+export function RoleRevealScreen({ humanPlayer, allPlayers, playerCount, config, onContinue }: RoleRevealScreenProps) {
   const [showRole, setShowRole] = useState(false);
   const [showTeammates, setShowTeammates] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   // Determine what the human player should know based on their role and player count
   const getKnownTeammates = () => {
@@ -72,6 +75,27 @@ export function RoleRevealScreen({ humanPlayer, allPlayers, playerCount, onConti
     return () => clearTimeout(timer);
   }, []);
 
+  // Play voice narration when role is revealed
+  useEffect(() => {
+    if (showRole && config.voiceChatEnabled && isElevenLabsEnabled(config.elevenLabsKey)) {
+      const playRoleNarration = async () => {
+        setIsPlayingAudio(true);
+        try {
+          const narrationText = getRoleNarrationText(humanPlayer.role);
+          await playElevenLabsAudio(config.elevenLabsKey!, narrationText, 'pNInz6obpgDQGcFmaJgB'); // Rachel voice for narration
+        } catch (error) {
+          console.error('Failed to play role narration:', error);
+        } finally {
+          setIsPlayingAudio(false);
+        }
+      };
+
+      // Delay narration slightly after role reveal
+      const narrationTimer = setTimeout(playRoleNarration, 1000);
+      return () => clearTimeout(narrationTimer);
+    }
+  }, [showRole, config.voiceChatEnabled, config.elevenLabsKey, humanPlayer.role]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
       <div className="max-w-2xl w-full">
@@ -80,6 +104,14 @@ export function RoleRevealScreen({ humanPlayer, allPlayers, playerCount, onConti
           <Shield className="w-16 h-16 mx-auto mb-4 text-red-500" />
           <h1 className="text-4xl font-bold text-white mb-2">Your Role</h1>
           <p className="text-gray-400">The fate of the nation rests in your hands</p>
+          
+          {/* Audio indicator */}
+          {isPlayingAudio && (
+            <div className="mt-4 flex items-center justify-center text-purple-400">
+              <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
+              <span className="text-sm">Playing narration...</span>
+            </div>
+          )}
         </div>
 
         {/* Role Card */}
@@ -153,14 +185,21 @@ export function RoleRevealScreen({ humanPlayer, allPlayers, playerCount, onConti
           <div className="text-center">
             <button
               onClick={onContinue}
-              className="px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold text-lg rounded-lg shadow-xl hover:from-green-500 hover:to-green-600 transform hover:scale-105 transition-all duration-300 border border-green-500"
+              disabled={isPlayingAudio}
+              className="px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold text-lg rounded-lg shadow-xl hover:from-green-500 hover:to-green-600 transform hover:scale-105 transition-all duration-300 border border-green-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
-              Enter the Game
+              {isPlayingAudio ? 'Playing Narration...' : 'Enter the Game'}
             </button>
             
             <p className="text-gray-500 text-sm mt-4">
               Remember: Keep your role secret from other players
             </p>
+            
+            {config.voiceChatEnabled && !isElevenLabsEnabled(config.elevenLabsKey) && (
+              <p className="text-yellow-500 text-sm mt-2">
+                Voice narration disabled: ElevenLabs API key required
+              </p>
+            )}
           </div>
         )}
       </div>

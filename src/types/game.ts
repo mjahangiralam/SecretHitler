@@ -140,46 +140,55 @@ export const AI_PERSONALITIES: AIPersonality[] = [
   {
     type: 'cautious-analyst',
     name: 'The Analyst',
+    voiceId: 'pNInz6obpgDQGcFmaJgB', // Adam
     traits: { aggression: 0.3, trustLevel: 0.7, deceptionSkill: 0.4, memoryReliability: 0.9 }
   },
   {
     type: 'aggressive-accuser',
     name: 'The Prosecutor',
+    voiceId: 'ErXwobaYiN019PkySvjV', // Antoni
     traits: { aggression: 0.9, trustLevel: 0.2, deceptionSkill: 0.6, memoryReliability: 0.7 }
   },
   {
     type: 'deceptive-joker',
-    name: 'The Jester',  
+    name: 'The Jester',
+    voiceId: 'VR6AewLTigWG4xSOukaG', // Arnold
     traits: { aggression: 0.5, trustLevel: 0.4, deceptionSkill: 0.9, memoryReliability: 0.5 }
   },
   {
     type: 'trust-builder',
     name: 'The Diplomat',
+    voiceId: 'AZnzlk1XvdvUeBnXmlld', // Domi
     traits: { aggression: 0.2, trustLevel: 0.9, deceptionSkill: 0.3, memoryReliability: 0.8 }
   },
   {
     type: 'flip-flopper',
     name: 'The Opportunist',
+    voiceId: 'EXAVITQu4vr4xnSDxMaL', // Bella
     traits: { aggression: 0.6, trustLevel: 0.3, deceptionSkill: 0.7, memoryReliability: 0.4 }
   },
   {
     type: 'quiet-observer',
     name: 'The Watcher',
+    voiceId: 'IKne3meq5aSn9XLyUdCD', // Charlie
     traits: { aggression: 0.1, trustLevel: 0.6, deceptionSkill: 0.5, memoryReliability: 0.9 }
   },
   {
     type: 'suspicious-skeptic',
     name: 'The Doubter',
+    voiceId: 'onwK4e9ZLuTAKqWW03F9', // Daniel
     traits: { aggression: 0.4, trustLevel: 0.1, deceptionSkill: 0.4, memoryReliability: 0.8 }
   },
   {
     type: 'overconfident-leader',
     name: 'The Commander',
+    voiceId: 'CYw3kZ02Hs0563khs1Fj', // Emily
     traits: { aggression: 0.8, trustLevel: 0.8, deceptionSkill: 0.3, memoryReliability: 0.6 }
   },
   {
     type: 'paranoid-screamer',
     name: 'The Alarmist',
+    voiceId: 'ThT5KcBeYPX3keUQqHPh', // Dorothy
     traits: { aggression: 0.7, trustLevel: 0.1, deceptionSkill: 0.2, memoryReliability: 0.3 }
   }
 ];

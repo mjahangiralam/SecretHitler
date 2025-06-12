@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Crown, ArrowRight, Settings } from 'lucide-react';
+import { Users, Crown, ArrowRight, Settings, Volume2 } from 'lucide-react';
 import { GameConfig } from '../types/game';
 
 interface LobbyScreenProps {
@@ -12,7 +12,9 @@ export function LobbyScreen({ onStartGame, onBack }: LobbyScreenProps) {
   const [humanPlayerName, setHumanPlayerName] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [aiChatEnabled, setAiChatEnabled] = useState(true);
+  const [voiceChatEnabled, setVoiceChatEnabled] = useState(false);
   const [openAIKey, setOpenAIKey] = useState('');
+  const [elevenLabsKey, setElevenLabsKey] = useState('');
 
   const handleStartGame = () => {
     if (!humanPlayerName.trim()) {
@@ -24,8 +26,9 @@ export function LobbyScreen({ onStartGame, onBack }: LobbyScreenProps) {
       playerCount,
       humanPlayerName: humanPlayerName.trim(),
       aiChatEnabled,
-      voiceChatEnabled: false,
-      openAIKey: openAIKey.trim() || undefined
+      voiceChatEnabled,
+      openAIKey: openAIKey.trim() || undefined,
+      elevenLabsKey: elevenLabsKey.trim() || undefined
     };
 
     onStartGame(config);
@@ -121,38 +124,83 @@ export function LobbyScreen({ onStartGame, onBack }: LobbyScreenProps) {
               </button>
               
               {showAdvanced && (
-                <div className="mt-4 space-y-4">
-                  <label className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      checked={aiChatEnabled}
-                      onChange={(e) => setAiChatEnabled(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500"
-                    />
-                    <span className="text-gray-300">AI Live Chat (Experimental)</span>
-                  </label>
-                  
-                  {aiChatEnabled && (
-                    <div className="space-y-2">
-                      <label className="block text-sm text-gray-300">OpenAI API Key (Optional)</label>
+                <div className="mt-6 space-y-6">
+                  {/* AI Chat Settings */}
+                  <div className="space-y-4">
+                    <label className="flex items-center space-x-3">
                       <input
-                        type="password"
-                        value={openAIKey}
-                        onChange={(e) => setOpenAIKey(e.target.value)}
-                        placeholder="sk-..."
-                        className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none text-sm"
+                        type="checkbox"
+                        checked={aiChatEnabled}
+                        onChange={(e) => setAiChatEnabled(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500"
                       />
-                      <p className="text-sm text-gray-500">
-                        Add your OpenAI API key to enable more sophisticated AI responses. 
-                        Without a key, AI will use pre-written responses.
-                      </p>
-                    </div>
-                  )}
-                  
-                  <p className="text-sm text-gray-500">
-                    Enable real-time chat with AI players during discussion phases. 
-                    Requires OpenAI API key for full experience.
-                  </p>
+                      <span className="text-gray-300">AI Live Chat (Experimental)</span>
+                    </label>
+                    
+                    {aiChatEnabled && (
+                      <div className="space-y-2 ml-7">
+                        <label className="block text-sm text-gray-300">OpenAI API Key (Optional)</label>
+                        <input
+                          type="password"
+                          value={openAIKey}
+                          onChange={(e) => setOpenAIKey(e.target.value)}
+                          placeholder="sk-..."
+                          className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none text-sm"
+                        />
+                        <p className="text-sm text-gray-500">
+                          Add your OpenAI API key to enable more sophisticated AI responses. 
+                          Without a key, AI will use pre-written responses.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Voice Settings */}
+                  <div className="space-y-4 border-t border-gray-600 pt-4">
+                    <label className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        checked={voiceChatEnabled}
+                        onChange={(e) => setVoiceChatEnabled(e.target.checked)}
+                        className="w-4 h-4 text-purple-600 bg-gray-800 border-gray-600 rounded focus:ring-purple-500"
+                      />
+                      <span className="text-gray-300 flex items-center">
+                        <Volume2 className="w-4 h-4 mr-2" />
+                        Voice Narration (ElevenLabs)
+                      </span>
+                    </label>
+                    
+                    {voiceChatEnabled && (
+                      <div className="space-y-3 ml-7">
+                        <div className="space-y-2">
+                          <label className="block text-sm text-gray-300">ElevenLabs API Key</label>
+                          <input
+                            type="password"
+                            value={elevenLabsKey}
+                            onChange={(e) => setElevenLabsKey(e.target.value)}
+                            placeholder="Enter your ElevenLabs API Key"
+                            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none text-sm"
+                          />
+                        </div>
+                        
+                        <div className="bg-purple-900 bg-opacity-20 border border-purple-700 rounded-lg p-3">
+                          <p className="text-sm text-purple-300 mb-2">
+                            <strong>Voice Features:</strong>
+                          </p>
+                          <ul className="text-sm text-gray-400 space-y-1">
+                            <li>• Role reveal narration</li>
+                            <li>• AI character voices during discussion</li>
+                            <li>• Presidential power announcements</li>
+                          </ul>
+                        </div>
+                        
+                        <p className="text-sm text-gray-500">
+                          This key will be used to generate audio narration during gameplay.
+                          Your key is stored locally and used only for audio generation.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -178,6 +226,13 @@ export function LobbyScreen({ onStartGame, onBack }: LobbyScreenProps) {
                 <div className="flex justify-between items-center py-2 border-b border-gray-700">
                   <span className="text-gray-300">AI Players:</span>
                   <span className="text-white font-bold">{playerCount - 1}</span>
+                </div>
+                
+                <div className="flex justify-between items-center py-2 border-b border-gray-700">
+                  <span className="text-gray-300">Voice Narration:</span>
+                  <span className={`font-bold ${voiceChatEnabled && elevenLabsKey ? 'text-green-400' : 'text-gray-500'}`}>
+                    {voiceChatEnabled && elevenLabsKey ? 'Enabled' : 'Disabled'}
+                  </span>
                 </div>
                 
                 <div className="mt-6">

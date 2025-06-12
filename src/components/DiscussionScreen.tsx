@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GameState, GameConfig, ChatMessage } from '../types/game';
-import { MessageSquare, Send, Users, Clock, User, FastForward } from 'lucide-react';
+import { MessageSquare, Send, Users, Clock, User, FastForward, Volume2 } from 'lucide-react';
 import { generateAIMessage } from '../utils/aiUtils';
+import { playElevenLabsAudio, getAIVoiceId, isElevenLabsEnabled } from '../utils/audioUtils';
 
 interface DiscussionScreenProps {
   gameState: GameState;
@@ -14,6 +15,7 @@ export function DiscussionScreen({ gameState, config, onContinue }: DiscussionSc
   const [inputMessage, setInputMessage] = useState('');
   const [timer, setTimer] = useState(60); // 60 seconds discussion
   const [isTimerActive, setIsTimerActive] = useState(true);
+  const [playingAudioFor, setPlayingAudioFor] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const humanPlayer = gameState.players.find(p => p.isHuman);
 
@@ -40,7 +42,7 @@ export function DiscussionScreen({ gameState, config, onContinue }: DiscussionSc
   useEffect(() => {
     if (!config.aiChatEnabled) return;
 
-    const generateAIChat = () => {
+    const generateAIChat = async () => {
       const alivePlayers = gameState.players.filter(p => !p.isHuman && p.isAlive);
       if (alivePlayers.length === 0) return;
 
@@ -59,6 +61,19 @@ export function DiscussionScreen({ gameState, config, onContinue }: DiscussionSc
       };
 
       setMessages(prev => [...prev, newMessage]);
+
+      // Play voice for AI message if enabled
+      if (config.voiceChatEnabled && isElevenLabsEnabled(config.elevenLabsKey)) {
+        try {
+          setPlayingAudioFor(randomPlayer.id);
+          const voiceId = getAIVoiceId(randomPlayer.personality);
+          await playElevenLabsAudio(config.elevenLabsKey!, message, voiceId);
+        } catch (error) {
+          console.error('Failed to play AI voice:', error);
+        } finally {
+          setPlayingAudioFor(null);
+        }
+      }
     };
 
     // Generate initial AI messages
@@ -75,7 +90,7 @@ export function DiscussionScreen({ gameState, config, onContinue }: DiscussionSc
       clearTimeout(initialDelay);
       clearInterval(interval);
     };
-  }, [config.aiChatEnabled, gameState, isTimerActive]);
+  }, [config.aiChatEnabled, config.voiceChatEnabled, config.elevenLabsKey, gameState, isTimerActive]);
 
   const determineContext = (): 'nomination' | 'voting' | 'post-vote' | 'post-policy' | 'accusation' | 'defense' => {
     // Determine what just happened to provide context for AI messages
@@ -135,6 +150,16 @@ export function DiscussionScreen({ gameState, config, onContinue }: DiscussionSc
             Round {gameState.round} - {formatTime(timer)}
           </p>
           
+          {/* Voice indicator */}
+          {playingAudioFor && config.voiceChatEnabled && (
+            <div className="mt-2 flex items-center justify-center text-purple-400">
+              <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
+              <span className="text-sm">
+                {gameState.players.find(p => p.id === playingAudioFor)?.name} speaking...
+              </span>
+            </div>
+          )}
+          
           {/* Skip Button */}
           <button
             onClick={onContinue}
@@ -165,16 +190,25 @@ export function DiscussionScreen({ gameState, config, onContinue }: DiscussionSc
               {messages.map((message) => {
                 const player = gameState.players.find(p => p.id === message.playerId);
                 const isHuman = player?.isHuman;
+                const isCurrentlySpeaking = playingAudioFor === message.playerId;
                 
                 return (
                   <div 
                     key={message.id}
-                    className={`flex items-start space-x-3 ${isHuman ? 'justify-end' : ''}`}
+                    className={`flex items-start space-x-3 ${isHuman ? 'justify-end' : ''} ${
+                      isCurrentlySpeaking ? 'bg-purple-900 bg-opacity-20 rounded-lg p-2' : ''
+                    }`}
                   >
                     {!isHuman && (
                       <div className="flex-shrink-0">
-                        <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
-                          <User className="w-4 h-4 text-gray-300" />
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          isCurrentlySpeaking ? 'bg-purple-600' : 'bg-gray-700'
+                        }`}>
+                          {isCurrentlySpeaking ? (
+                            <Volume2 className="w-4 h-4 text-white animate-pulse" />
+                          ) : (
+                            <User className="w-4 h-4 text-gray-300" />
+                          )}
                         </div>
                       </div>
                     )}
@@ -183,12 +217,17 @@ export function DiscussionScreen({ gameState, config, onContinue }: DiscussionSc
                       <div className="flex items-center space-x-2 mb-1">
                         <span className="text-sm text-gray-400">{message.playerName}</span>
                         {isHuman && <span className="text-xs text-green-400">(You)</span>}
+                        {isCurrentlySpeaking && (
+                          <span className="text-xs text-purple-400 animate-pulse">Speaking</span>
+                        )}
                       </div>
                       
                       <div 
                         className={`rounded-lg px-4 py-2 max-w-md break-words ${
                           isHuman 
                             ? 'bg-blue-600 text-white' 
+                            : isCurrentlySpeaking
+                            ? 'bg-purple-700 text-white'
                             : 'bg-gray-700 text-gray-100'
                         }`}
                       >
@@ -206,6 +245,7 @@ export function DiscussionScreen({ gameState, config, onContinue }: DiscussionSc
                   </div>
                 );
               })}
+              <div ref={messagesEndRef} />
             </div>
           </div>
         </div>
@@ -217,7 +257,7 @@ export function DiscussionScreen({ gameState, config, onContinue }: DiscussionSc
               type="text"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+              onKeyPress={handleKeyPress}
               placeholder="Type your message..."
               className="flex-grow bg-gray-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -229,6 +269,12 @@ export function DiscussionScreen({ gameState, config, onContinue }: DiscussionSc
               Send
             </button>
           </div>
+          
+          {config.voiceChatEnabled && !isElevenLabsEnabled(config.elevenLabsKey) && (
+            <p className="text-yellow-500 text-sm mt-2">
+              Voice chat disabled: ElevenLabs API key required
+            </p>
+          )}
         </div>
       </div>
     </div>

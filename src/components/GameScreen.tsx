@@ -116,6 +116,7 @@ export function GameScreen({
       return (
         <SpecialPowerScreen
           gameState={gameState}
+          config={config}
           onUsePower={onUseSpecialPower}
           onContinue={onNextPhase}
         />

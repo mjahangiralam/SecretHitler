@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
-import { GameState, SpecialPower } from '../types/game';
-import { Eye, Vote, Zap, Skull, Search } from 'lucide-react';
+import { GameState, SpecialPower, GameConfig } from '../types/game';
+import { Eye, Vote, Zap, Skull, Search, AlertTriangle, Info } from 'lucide-react';
+import { playElevenLabsAudio, isElevenLabsEnabled } from '../utils/audioUtils';
 
 interface SpecialPowerScreenProps {
   gameState: GameState;
+  config: GameConfig;
   onUsePower: (targetId?: string, result?: any) => void;
   onContinue: () => void;
 }
 
-export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: SpecialPowerScreenProps) {
+export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }: SpecialPowerScreenProps) {
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [powerUsed, setPowerUsed] = useState(false);
   const [investigationResult, setInvestigationResult] = useState<string | null>(null);
   const [policyPeekResult, setPolicyPeekResult] = useState<string[] | null>(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   const president = gameState.players.find(p => p.id === gameState.president);
   const isHumanPresident = president?.isHuman;
@@ -49,6 +52,21 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
     }
   };
 
+  const getPowerWarning = (power: SpecialPower) => {
+    switch (power) {
+      case 'execution':
+        return 'Executing Hitler results in immediate Liberal victory.';
+      case 'investigate-loyalty':
+        return 'You may choose whether to reveal this information to other players.';
+      case 'policy-peek':
+        return 'Use this knowledge strategically — others cannot verify your claim.';
+      case 'special-election':
+        return 'The chosen player will become the next President, then normal order resumes.';
+      default:
+        return null;
+    }
+  };
+
   const getEligibleTargets = () => {
     switch (power) {
       case 'investigate-loyalty':
@@ -78,9 +96,33 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
     role
   }));
 
-  const handleUsePower = () => {
+  const playPowerAnnouncement = async (powerName: string) => {
+    if (config.voiceChatEnabled && isElevenLabsEnabled(config.elevenLabsKey)) {
+      setIsPlayingAudio(true);
+      try {
+        const announcement = `Presidential power activated: ${powerName}`;
+        await playElevenLabsAudio(config.elevenLabsKey!, announcement, 'pNInz6obpgDQGcFmaJgB');
+      } catch (error) {
+        console.error('Failed to play power announcement:', error);
+      } finally {
+        setIsPlayingAudio(false);
+      }
+    }
+  };
+
+  const handleUsePower = async () => {
     if (!power) return;
     console.log('Using power:', power, 'on target:', selectedTarget);
+
+    // Play announcement
+    const powerNames = {
+      'investigate-loyalty': 'Investigate Loyalty',
+      'special-election': 'Special Election',
+      'policy-peek': 'Policy Peek',
+      'execution': 'Execution'
+    };
+    
+    await playPowerAnnouncement(powerNames[power]);
 
     if (power === 'policy-peek') {
       // Simulate policy peek
@@ -148,7 +190,7 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
       
       return () => clearTimeout(timer);
     }
-  }, [isHumanPresident, powerUsed, power, handleUsePower, onContinue]);
+  }, [isHumanPresident, powerUsed, power]);
 
   if (!power) {
     return (
@@ -169,6 +211,7 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
   const PowerIcon = getPowerIcon(power);
   const powerColor = getPowerColor(power);
   const targets = getEligibleTargets() || [];
+  const warning = getPowerWarning(power);
 
   // Show results
   if (powerUsed) {
@@ -192,13 +235,17 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
                 }`}>
                   {gameState.players.find(p => p.id === selectedTarget)?.name} is {investigationResult}
                 </div>
+                <div className="mt-4 flex items-center justify-center text-yellow-400">
+                  <Info className="w-4 h-4 mr-2" />
+                  <span className="text-sm">You may choose whether to reveal this information</span>
+                </div>
               </div>
             )}
             
             {policyPeekResult && (
               <div className="mb-6">
                 <div className="text-white font-bold text-lg mb-4">Next 3 Policies</div>
-                <div className="flex justify-center space-x-4">
+                <div className="flex justify-center space-x-4 mb-4">
                   {policyPeekResult.map((policy, index) => (
                     <div
                       key={index}
@@ -212,14 +259,22 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
                     </div>
                   ))}
                 </div>
+                <div className="flex items-center justify-center text-yellow-400">
+                  <Info className="w-4 h-4 mr-2" />
+                  <span className="text-sm">Use this knowledge strategically — others cannot verify your claim</span>
+                </div>
               </div>
             )}
             
             {power === 'special-election' && selectedTarget && (
               <div className="mb-6">
                 <div className="text-white font-bold text-lg mb-2">Special Election</div>
-                <div className="text-purple-400 text-xl">
+                <div className="text-purple-400 text-xl mb-4">
                   {gameState.players.find(p => p.id === selectedTarget)?.name} is the new President
+                </div>
+                <div className="flex items-center justify-center text-yellow-400">
+                  <Info className="w-4 h-4 mr-2" />
+                  <span className="text-sm">Normal presidential order resumes after this special presidency</span>
                 </div>
               </div>
             )}
@@ -227,265 +282,24 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
             {power === 'execution' && selectedTarget && (
               <div className="mb-6">
                 <div className="text-white font-bold text-lg mb-2">Execution</div>
-                <div className="text-red-400 text-xl">
+                <div className="text-red-400 text-xl mb-4">
                   {gameState.players.find(p => p.id === selectedTarget)?.name} has been eliminated
+                </div>
+                <div className="flex items-center justify-center text-red-400">
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  <span className="text-sm">This player is permanently removed from the game</span>
                 </div>
               </div>
             )}
             
             <button
               onClick={onContinue}
-              className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold rounded-lg hover:from-green-500 hover:to-green-600 transition-all duration-300"
+              disabled={isPlayingAudio}
+              className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold rounded-lg hover:from-green-500 hover:to-green-600 transition-all duration-300 disabled:opacity-50"
             >
-              Continue
+              {isPlayingAudio ? 'Playing Audio...' : 'Continue'}
             </button>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show investigation results
-  if (power === 'investigate-loyalty' && powerUsed && selectedTarget) {
-    const targetPlayer = gameState.players.find(p => p.id === selectedTarget);
-    const result = gameState.investigationResults[selectedTarget];
-    
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8 pt-8">
-            <Search className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-white mb-2">Investigation Results</h1>
-            <p className="text-gray-400">You have learned {targetPlayer?.name}'s loyalty</p>
-          </div>
-
-          <div className="bg-black bg-opacity-40 border border-gray-700 rounded-xl p-8 mb-8">
-            <div className="text-center mb-6">
-              <div className="text-2xl font-bold mb-2">
-                <span className="text-white">{targetPlayer?.name} is a </span>
-                <span className={result === 'liberal' ? 'text-blue-400' : 'text-red-400'}>
-                  {result === 'liberal' ? 'Liberal' : 'Fascist'}
-                </span>
-              </div>
-              <p className="text-gray-400">Keep this information secret!</p>
-            </div>
-
-            <div className="flex justify-center">
-              <div className={`w-64 h-96 rounded-xl border-4 transform transition-all duration-500 ${
-                result === 'liberal' 
-                  ? 'border-blue-500 bg-gradient-to-br from-blue-900 to-blue-800' 
-                  : 'border-red-500 bg-gradient-to-br from-red-900 to-red-800'
-              }`}>
-                <div className="p-4 text-center">
-                  <div className="text-xl font-bold text-white mb-2">{targetPlayer?.name}</div>
-                  <div className={`text-lg font-semibold ${
-                    result === 'liberal' ? 'text-blue-300' : 'text-red-300'
-                  }`}>
-                    {result === 'liberal' ? 'Liberal' : 'Fascist'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <button
-              onClick={onContinue}
-              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:from-blue-500 hover:to-blue-600 transition-all duration-300"
-            >
-              Continue
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show player selection for investigation
-  if (power === 'investigate-loyalty' && !powerUsed) {
-    const eligibleTargets = getEligibleTargets();
-    const previouslyInvestigated = investigatedPlayers.filter(({ player }) => player.isAlive);
-    
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8 pt-8">
-            <Search className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-white mb-2">Investigate Loyalty</h1>
-            <p className="text-gray-400">Select a player to investigate their loyalty</p>
-          </div>
-
-          {/* Eligible Players */}
-          <div className="mb-8">
-            <h3 className="text-xl font-semibold text-white mb-4">Available Players:</h3>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {eligibleTargets.map((player) => (
-                <button
-                  key={player.id}
-                  onClick={() => setSelectedTarget(player.id)}
-                  className={`p-4 rounded-lg border-2 transition-all duration-300 ${
-                    selectedTarget === player.id
-                      ? 'border-blue-500 bg-blue-900 bg-opacity-40 shadow-lg transform scale-105'
-                      : 'border-gray-600 bg-gray-800 bg-opacity-40 hover:border-gray-500'
-                  }`}
-                >
-                  <div className="text-center">
-                    <div className="text-white font-semibold mb-1">{player.name}</div>
-                    {!player.isHuman && player.personality && (
-                      <div className="text-xs text-gray-400">{player.personality.name}</div>
-                    )}
-                    {player.isHuman && <div className="text-xs text-green-400">(You)</div>}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Previously Investigated */}
-          {previouslyInvestigated.length > 0 && (
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-blue-400 mb-4">Previously Investigated:</h3>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {previouslyInvestigated.map(({ player, role }) => (
-                  <div
-                    key={player.id}
-                    className={`p-4 rounded-lg border-2 ${
-                      role === 'liberal' 
-                        ? 'border-blue-900 bg-blue-900 bg-opacity-20' 
-                        : 'border-red-900 bg-red-900 bg-opacity-20'
-                    }`}
-                  >
-                    <div className="text-center">
-                      <div className="text-white font-semibold mb-1">{player.name}</div>
-                      <div className={`text-sm ${role === 'liberal' ? 'text-blue-400' : 'text-red-400'}`}>
-                        {role === 'liberal' ? 'Liberal' : 'Fascist'}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Dead Players */}
-          {deadPlayers.length > 0 && (
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-red-400 mb-4">Dead Players:</h3>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {deadPlayers.map((player) => (
-                  <div
-                    key={player.id}
-                    className="p-4 rounded-lg border-2 border-red-900 bg-red-900 bg-opacity-20 opacity-50"
-                  >
-                    <div className="text-center">
-                      <div className="text-gray-400 font-semibold mb-1 line-through">{player.name}</div>
-                      {!player.isHuman && player.personality && (
-                        <div className="text-xs text-gray-500">{player.personality.name}</div>
-                      )}
-                      {player.isHuman && <div className="text-xs text-gray-500">(You)</div>}
-                      <div className="text-xs text-red-400 mt-1">Eliminated</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Investigation Button */}
-          {selectedTarget && (
-            <div className="text-center">
-              <button
-                onClick={handleUsePower}
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:from-blue-500 hover:to-blue-600 transition-all duration-300"
-              >
-                Investigate {gameState.players.find(p => p.id === selectedTarget)?.name}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Show policy peek results
-  if (power === 'policy-peek' && gameState.policyPeekCards) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8 pt-8">
-            <Eye className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-white mb-2">Top Three Policies</h1>
-            <p className="text-gray-400">These are the next three policies in the draw pile</p>
-          </div>
-
-          <div className="bg-black bg-opacity-40 border border-gray-700 rounded-xl p-8 mb-8">
-            <div className="flex justify-center space-x-8">
-              {gameState.policyPeekCards.map((policy, index) => (
-                <div
-                  key={index}
-                  className={`w-48 h-72 rounded-xl border-4 transform transition-all duration-500 ${
-                    policy === 'liberal' 
-                      ? 'border-blue-500 bg-gradient-to-br from-blue-900 to-blue-800' 
-                      : 'border-red-500 bg-gradient-to-br from-red-900 to-red-800'
-                  }`}
-                >
-                  <div className="p-4 text-center">
-                    <div className={`text-2xl font-bold ${
-                      policy === 'liberal' ? 'text-blue-300' : 'text-red-300'
-                    }`}>
-                      {policy === 'liberal' ? 'Liberal' : 'Fascist'} Policy
-                    </div>
-                    <div className="text-white text-sm mt-2">Card {index + 1} of 3</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="text-center mt-8">
-              <p className="text-gray-400 mb-4">Keep this information secret!</p>
-              <button
-                onClick={onContinue}
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:from-blue-500 hover:to-blue-600 transition-all duration-300"
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show policy peek action for AI
-  if (power === 'policy-peek' && !powerUsed) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8 pt-8">
-            <Eye className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-white mb-2">Policy Peek</h1>
-            <p className="text-gray-400">
-              {isHumanPresident ? 'View the next three policies' : `${president?.name} is peeking at the next three policies...`}
-            </p>
-          </div>
-
-          {isHumanPresident ? (
-            <div className="text-center">
-              <button
-                onClick={handleUsePower}
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:from-blue-500 hover:to-blue-600 transition-all duration-300"
-              >
-                Peek at Policies
-              </button>
-            </div>
-          ) : (
-            <div className="text-center">
-              <div className="animate-pulse">
-                <div className="w-16 h-16 bg-gray-700 rounded-full mx-auto mb-4"></div>
-                <div className="w-48 h-4 bg-gray-700 rounded mx-auto"></div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -498,7 +312,7 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
         {/* Header */}
         <div className="text-center mb-8 pt-8">
           <PowerIcon className={`w-12 h-12 text-${powerColor}-500 mx-auto mb-4`} />
-          <h1 className="text-3xl font-bold text-white mb-2">Special Power</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">Presidential Power</h1>
           <p className="text-gray-400">
             {isHumanPresident ? 'Use your presidential power' : `${president?.name} is using their power...`}
           </p>
@@ -514,14 +328,29 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
         </div>
 
         {/* Power Description */}
-        <div className={`bg-${powerColor}-900 bg-opacity-20 border border-${powerColor}-700 rounded-xl p-6 mb-8`}>
+        <div className={`bg-${powerColor}-900 bg-opacity-20 border border-${powerColor}-700 rounded-xl p-6 mb-6`}>
           <div className="flex items-center mb-4">
             <PowerIcon className={`w-8 h-8 text-${powerColor}-400 mr-3`} />
             <h3 className={`text-xl font-bold text-${powerColor}-400`}>
               {power.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
             </h3>
           </div>
-          <p className="text-gray-300">{getPowerDescription(power)}</p>
+          <p className="text-gray-300 mb-4">{getPowerDescription(power)}</p>
+          
+          {warning && (
+            <div className={`flex items-start p-3 rounded-lg ${
+              power === 'execution' ? 'bg-red-900 bg-opacity-20 border border-red-700' : 'bg-yellow-900 bg-opacity-20 border border-yellow-700'
+            }`}>
+              {power === 'execution' ? (
+                <AlertTriangle className="w-5 h-5 text-red-400 mr-2 mt-0.5 flex-shrink-0" />
+              ) : (
+                <Info className="w-5 h-5 text-yellow-400 mr-2 mt-0.5 flex-shrink-0" />
+              )}
+              <span className={`text-sm ${power === 'execution' ? 'text-red-300' : 'text-yellow-300'}`}>
+                {warning}
+              </span>
+            </div>
+          )}
         </div>
 
         {isHumanPresident ? (
@@ -560,10 +389,10 @@ export function SpecialPowerScreen({ gameState, onUsePower, onContinue }: Specia
             <div className="text-center">
               <button
                 onClick={handleUsePower}
-                disabled={targets.length > 0 && !selectedTarget}
+                disabled={(targets.length > 0 && !selectedTarget) || isPlayingAudio}
                 className={`px-8 py-3 bg-gradient-to-r from-${powerColor}-600 to-${powerColor}-700 text-white font-bold text-lg rounded-lg shadow-xl hover:from-${powerColor}-500 hover:to-${powerColor}-600 transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
               >
-                Use Power
+                {isPlayingAudio ? 'Playing Audio...' : 'Use Power'}
               </button>
             </div>
           </>

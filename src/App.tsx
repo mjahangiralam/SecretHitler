@@ -68,11 +68,12 @@ function App() {
       );
 
     case 'role-reveal':
-      return humanPlayer ? (
+      return humanPlayer && config ? (
         <RoleRevealScreen
           humanPlayer={humanPlayer}
           allPlayers={gameState.players}
           playerCount={config?.playerCount || 5}
+          config={config}
           onContinue={handleContinueFromRoleReveal}
         />
       ) : null;
