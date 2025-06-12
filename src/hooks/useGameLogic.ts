@@ -271,62 +271,81 @@ export function useGameLogic() {
     });
   }, []);
 
-  const useSpecialPower = useCallback((targetId?: string, result?: any) => {
-    setGameState(prev => {
-      const newState = { ...prev };
-      
-      if (!prev.availablePower) return prev;
+const useSpecialPower = useCallback((targetId?: string, result?: any) => {
+  setGameState(prev => {
+    if (!prev.availablePower) return prev;
 
-      switch (prev.availablePower) {
-        case 'investigate-loyalty':
-          if (targetId) {
-            const targetPlayer = prev.players.find(p => p.id === targetId);
-            if (targetPlayer) {
-              newState.investigationResults = {
+    const updatedUsedPowers = [...prev.usedPowers, prev.availablePower];
+    let baseState = {
+      ...prev,
+      usedPowers: updatedUsedPowers,
+      availablePower: null
+    };
+
+    switch (prev.availablePower) {
+      case 'investigate-loyalty':
+        if (targetId) {
+          const targetPlayer = prev.players.find(p => p.id === targetId);
+          if (targetPlayer) {
+            return {
+              ...baseState,
+              investigationResults: {
                 ...prev.investigationResults,
                 [targetId]: targetPlayer.role
-              };
-              newState.usedPowers = [...prev.usedPowers, 'investigate-loyalty'];
-            }
+              }
+            };
           }
-          break;
-        case 'execution':
-          if (targetId) {
-            newState.players = prev.players.map(p => 
-              p.id === targetId ? { ...p, isAlive: false, isEligible: false } : p
-            );
-            // Check if Hitler was killed
-            const killedPlayer = prev.players.find(p => p.id === targetId);
-            if (killedPlayer?.role === 'hitler') {
-              newState.phase = 'game-over';
-              newState.winner = 'liberal';
-              newState.winReason = 'Hitler was assassinated';
-            }
-            newState.usedPowers = [...prev.usedPowers, 'execution'];
-          }
-          break;
-        case 'policy-peek':
-          // Store the next three policies for peeking
-          const topThree = prev.policyDeck.slice(0, 3);
-          newState.policyPeekCards = topThree;
-          newState.usedPowers = [...prev.usedPowers, 'policy-peek'];
-          break;
-        case 'special-election':
-          if (targetId) {
-            newState.previousPresident = prev.president; // Store current president
-            newState.president = targetId; // Set new president
-            newState.chancellor = null; // Clear chancellor for new nomination
-            newState.usedPowers = [...prev.usedPowers, 'special-election'];
-          }
-          break;
-      }
+        }
+        return baseState;
 
-      // Clear the available power after use
-      newState.availablePower = null;
-      
-      return newState;
-    });
-  }, []);
+      case 'execution':
+        if (targetId) {
+          const updatedPlayers = prev.players.map(p =>
+            p.id === targetId ? { ...p, isAlive: false, isEligible: false } : p
+          );
+
+          const killedPlayer = prev.players.find(p => p.id === targetId);
+          if (killedPlayer?.role === 'hitler') {
+            return {
+              ...baseState,
+              players: updatedPlayers,
+              phase: 'game-over',
+              winner: 'liberal',
+              winReason: 'Hitler was assassinated'
+            };
+          }
+
+          return {
+            ...baseState,
+            players: updatedPlayers
+          };
+        }
+        return baseState;
+
+      case 'policy-peek':
+        const topThree = prev.policyDeck.slice(0, 3);
+        return {
+          ...baseState,
+          policyPeekCards: topThree
+        };
+
+      case 'special-election':
+        if (targetId) {
+          return {
+            ...baseState,
+            previousPresident: prev.president,
+            president: targetId,
+            chancellor: null
+          };
+        }
+        return baseState;
+
+      default:
+        return baseState;
+    }
+  });
+}, []);
+
 
   // Check win conditions
   useEffect(() => {
