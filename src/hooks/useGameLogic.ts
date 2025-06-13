@@ -216,6 +216,7 @@ export function useGameLogic() {
             previousPresident: prev.president,
             previousChancellor: prev.chancellor
           };
+      }
         case 'special-power':
           return { ...prev, phase: 'discussion', availablePower: null };
         default:
