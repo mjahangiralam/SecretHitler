@@ -1,4 +1,4 @@
-import { Player, ChatMessage, GameState, AIPersonality } from '../types/game';
+import { Player, ChatMessage, GameState, AIPersonality, Vote } from '../types/game';
 
 const AI_NAMES = [
   'Klaus Weber', 'Emma Fischer', 'Hans Mueller', 'Anna Schmidt', 
@@ -252,58 +252,35 @@ export async function getAIResponse(
   }
 }
 
-export function simulateAIVote(player: Player, gameState: GameState): 'ja' | 'nein' {
-  if (!player.personality) return 'nein';
-  
-  const { traits } = player.personality;
-  const president = gameState.players.find(p => p.id === gameState.president);
-  const chancellor = gameState.players.find(p => p.id === gameState.chancellor);
-  
-  if (!president || !chancellor) return 'nein';
-  
-  let voteScore = 0.5; // Neutral starting point
-
-  // Early game bias (rounds 1-4)
-  if (gameState.round <= 4) {
-    voteScore += 0.3; // Strong bias towards 'ja' in early rounds
-    // Even stronger bias in first two rounds
-    if (gameState.round <= 2) {
-      voteScore += 0.1;
-    }
-    // Add some personality-based variation to early game voting
-    voteScore += (traits.trustLevel - 0.5) * 0.1;
-  } else {
-    // Role-based voting (existing logic for later rounds)
-    if (player.role === 'liberal') {
-      // Liberals are cautious about fascist governments
-      if (president.role !== 'liberal' || chancellor.role !== 'liberal') {
-        voteScore -= 0.3;
-      }
-      // Extra cautious about Hitler as Chancellor if 3+ fascist policies
-      if (chancellor.role === 'hitler' && gameState.fascistPolicies >= 3) {
-        voteScore -= 0.8;
-      }
-    } else if (player.role === 'fascist') {
-      // Fascists support other fascists
-      if (president.role !== 'liberal' || chancellor.role !== 'liberal') {
-        voteScore += 0.4;
-      }
-      // Help Hitler become Chancellor when ready
-      if (chancellor.role === 'hitler' && gameState.fascistPolicies >= 3) {
-        voteScore += 0.6;
-      }
-    } else if (player.role === 'hitler') {
-      // Hitler plays carefully
-      voteScore += traits.deceptionSkill * 0.2;
-    }
-    
-    // Personality adjustments for later rounds
-    voteScore += (traits.trustLevel - 0.5) * 0.3;
+export function simulateAIVote(player: Player, gameState: GameState): Vote {
+  // Vote 'ja' with high probability in the first 2 rounds
+  if (gameState.round <= 2) {
+    return Math.random() < 0.85 ? 'ja' : 'nein';
   }
 
-  // Always add some randomness, but less in early game
-  const randomFactor = gameState.round <= 4 ? 0.1 : 0.2;
-  voteScore += (Math.random() - 0.5) * randomFactor;
-  
-  return voteScore > 0.5 ? 'ja' : 'nein';
+  // After round 2, use suspicion and randomness
+  // If the president or chancellor is highly suspected, more likely to vote 'nein'
+  const president = gameState.players.find(p => p.id === gameState.president);
+  const chancellor = gameState.players.find(p => p.id === gameState.chancellor);
+
+  let suspicion = 0;
+  if (president) suspicion += president.suspicionLevel || 0;
+  if (chancellor) suspicion += chancellor.suspicionLevel || 0;
+
+  // Normalize suspicion (assuming 0-1 scale, or adjust as needed)
+  suspicion = Math.min(Math.max(suspicion, 0), 1);
+
+  // Base chance to vote yes
+  let yesChance = 0.5;
+  // If suspicion is high, lower the chance
+  if (suspicion > 0.7) yesChance = 0.2;
+  else if (suspicion > 0.4) yesChance = 0.35;
+  else if (suspicion > 0.2) yesChance = 0.45;
+  else yesChance = 0.6;
+
+  // Add a little randomness
+  yesChance += (Math.random() - 0.5) * 0.1;
+  yesChance = Math.min(Math.max(yesChance, 0.1), 0.9);
+
+  return Math.random() < yesChance ? 'ja' : 'nein';
 }
