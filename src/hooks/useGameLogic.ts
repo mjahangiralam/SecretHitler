@@ -133,13 +133,23 @@ export function useGameLogic() {
         case 'nomination':
           return { ...prev, phase: 'voting', votes: {} };
         case 'voting':
-          const votePassed = Object.values(prev.votes).filter(v => v === 'ja').length > prev.players.length / 2;
+          const votePassed = Object.values(prev.votes).filter(v => v === 'ja').length > prev.players.filter(p => p.isAlive).length / 2;
+          
           if (votePassed) {
-            return { ...prev, phase: 'legislative', electionTracker: 0 };
+            // Government approved - update previous roles and proceed to legislative
+            return { 
+              ...prev, 
+              phase: 'legislative', 
+              electionTracker: 0,
+              previousPresident: prev.president,
+              previousChancellor: prev.chancellor
+            };
           }
-          // Move to next president
-          const currentPresIndex = prev.players.findIndex(p => p.id === prev.president);
-          const nextPresIndex = (currentPresIndex + 1) % prev.players.length;
+          
+          // Government rejected - move to next president and update previous roles
+          const alivePlayers = prev.players.filter(p => p.isAlive);
+          const currentPresIndex = alivePlayers.findIndex(p => p.id === prev.president);
+          const nextPresIndex = (currentPresIndex + 1) % alivePlayers.length;
           const newElectionTracker = prev.electionTracker + 1;
             
           if (newElectionTracker >= 3) {
@@ -149,34 +159,38 @@ export function useGameLogic() {
               ? { liberalPolicies: prev.liberalPolicies + 1 }
               : { fascistPolicies: prev.fascistPolicies + 1 };
               
-              // Add a chat message about the chaos
-              const chaosMessage: ChatMessage = {
-                id: `chaos-${Date.now()}`,
-                playerId: 'system',
-                playerName: 'System',
-                message: `Due to 3 failed elections, the top policy card (${topPolicy.toUpperCase()}) was automatically enacted!`,
-                timestamp: Date.now(),
-                isAI: false
-              };
+            // Add a chat message about the chaos
+            const chaosMessage: ChatMessage = {
+              id: `chaos-${Date.now()}`,
+              playerId: 'system',
+              playerName: 'System',
+              message: `Due to 3 failed elections, the top policy card (${topPolicy.toUpperCase()}) was automatically enacted!`,
+              timestamp: Date.now(),
+              isAI: false
+            };
               
-              return {
-                ...prev,
-                ...newState,
-                policyDeck: remainingDeck,
-                president: prev.players[nextPresIndex].id,
-                chancellor: null,
-                electionTracker: 0,
-                phase: 'policy-boards',
-                chatMessages: [...prev.chatMessages, chaosMessage]
-              };
+            return {
+              ...prev,
+              ...newState,
+              policyDeck: remainingDeck,
+              president: alivePlayers[nextPresIndex].id,
+              chancellor: null,
+              electionTracker: 0,
+              phase: 'policy-boards',
+              chatMessages: [...prev.chatMessages, chaosMessage],
+              previousPresident: prev.president,
+              previousChancellor: prev.chancellor
+            };
           }
             
           return {
             ...prev,
-            president: prev.players[nextPresIndex].id,
+            president: alivePlayers[nextPresIndex].id,
             chancellor: null,
             electionTracker: newElectionTracker,
-            phase: 'nomination'
+            phase: 'nomination',
+            previousPresident: prev.president,
+            previousChancellor: prev.chancellor
           };
         case 'legislative':
           return { ...prev, phase: 'policy-boards' };
@@ -187,7 +201,21 @@ export function useGameLogic() {
           }
           return { ...prev, phase: 'discussion' };
         case 'discussion':
-          return { ...prev, phase: 'nomination' };
+          // Move to next president after discussion
+          const alivePlayers = prev.players.filter(p => p.isAlive);
+          const currentPresIndex = alivePlayers.findIndex(p => p.id === prev.president);
+          const nextPresIndex = (currentPresIndex + 1) % alivePlayers.length;
+          
+          return { 
+            ...prev, 
+            phase: 'nomination',
+            president: alivePlayers[nextPresIndex].id,
+            chancellor: null,
+            round: prev.round + 1,
+            votes: {},
+            previousPresident: prev.president,
+            previousChancellor: prev.chancellor
+          };
         case 'special-power':
           return { ...prev, phase: 'discussion', availablePower: null };
         default:
@@ -271,81 +299,83 @@ export function useGameLogic() {
     });
   }, []);
 
-const useSpecialPower = useCallback((targetId?: string, result?: any) => {
-  setGameState(prev => {
-    if (!prev.availablePower) return prev;
+  const useSpecialPower = useCallback((targetId?: string, result?: any) => {
+    setGameState(prev => {
+      if (!prev.availablePower) return prev;
 
-    const updatedUsedPowers = [...prev.usedPowers, prev.availablePower];
-    let baseState = {
-      ...prev,
-      usedPowers: updatedUsedPowers,
-      availablePower: null
-    };
+      // Initialize the new state with common updates
+      let newState = {
+        ...prev,
+        usedPowers: [...prev.usedPowers, prev.availablePower],
+        availablePower: null
+      };
 
-    switch (prev.availablePower) {
-      case 'investigate-loyalty':
-        if (targetId) {
-          const targetPlayer = prev.players.find(p => p.id === targetId);
-          if (targetPlayer) {
-            return {
-              ...baseState,
-              investigationResults: {
-                ...prev.investigationResults,
-                [targetId]: targetPlayer.role
-              }
+      switch (prev.availablePower) {
+        case 'investigate-loyalty':
+          if (targetId) {
+            const targetPlayer = prev.players.find(p => p.id === targetId);
+            if (targetPlayer) {
+              newState = {
+                ...newState,
+                investigationResults: {
+                  ...prev.investigationResults,
+                  [targetId]: targetPlayer.role
+                }
+              };
+            }
+          }
+          break;
+
+        case 'execution':
+          if (targetId) {
+            const updatedPlayers = prev.players.map(p =>
+              p.id === targetId ? { ...p, isAlive: false, isEligible: false } : p
+            );
+
+            const killedPlayer = prev.players.find(p => p.id === targetId);
+            if (killedPlayer?.role === 'hitler') {
+              newState = {
+                ...newState,
+                players: updatedPlayers,
+                phase: 'game-over',
+                winner: 'liberal',
+                winReason: 'Hitler was assassinated'
+              };
+            } else {
+              newState = {
+                ...newState,
+                players: updatedPlayers
+              };
+            }
+          }
+          break;
+
+        case 'policy-peek':
+          const topThree = prev.policyDeck.slice(0, 3);
+          newState = {
+            ...newState,
+            policyPeekCards: topThree
+          };
+          break;
+
+        case 'special-election':
+          if (targetId) {
+            newState = {
+              ...newState,
+              previousPresident: prev.president,
+              president: targetId,
+              chancellor: null
             };
           }
-        }
-        return baseState;
+          break;
 
-      case 'execution':
-        if (targetId) {
-          const updatedPlayers = prev.players.map(p =>
-            p.id === targetId ? { ...p, isAlive: false, isEligible: false } : p
-          );
+        default:
+          break;
+      }
 
-          const killedPlayer = prev.players.find(p => p.id === targetId);
-          if (killedPlayer?.role === 'hitler') {
-            return {
-              ...baseState,
-              players: updatedPlayers,
-              phase: 'game-over',
-              winner: 'liberal',
-              winReason: 'Hitler was assassinated'
-            };
-          }
-
-          return {
-            ...baseState,
-            players: updatedPlayers
-          };
-        }
-        return baseState;
-
-      case 'policy-peek':
-        const topThree = prev.policyDeck.slice(0, 3);
-        return {
-          ...baseState,
-          policyPeekCards: topThree
-        };
-
-      case 'special-election':
-        if (targetId) {
-          return {
-            ...baseState,
-            previousPresident: prev.president,
-            president: targetId,
-            chancellor: null
-          };
-        }
-        return baseState;
-
-      default:
-        return baseState;
-    }
-  });
-}, []);
-
+      return newState;
+    });
+  }, []);
 
   // Check win conditions
   useEffect(() => {
@@ -365,7 +395,7 @@ const useSpecialPower = useCallback((targetId?: string, result?: any) => {
       // Hitler elected as Chancellor after 3 fascist policies
       if (prev.fascistPolicies >= 3 && prev.chancellor) {
         const chancellor = prev.players.find(p => p.id === prev.chancellor);
-        if (chancellor?.role === 'hitler' && Object.values(prev.votes).filter(v => v === 'ja').length > prev.players.length / 2) {
+        if (chancellor?.role === 'hitler' && Object.values(prev.votes).filter(v => v === 'ja').length > prev.players.filter(p => p.isAlive).length / 2) {
           return { ...prev, winner: 'fascist', winReason: 'Hitler elected Chancellor', phase: 'game-over' };
         }
       }
