@@ -226,26 +226,86 @@ export async function getAIResponse(
   if (!openAIKey) {
     return generateAIMessage(player, gameState, context as any);
   }
-  
+
+  // Get recent chat messages for context
+  const recentMessages = gameState.chatMessages.slice(-5);
+  const messageHistory = recentMessages.map(msg => 
+    `${msg.playerName}: ${msg.message}`
+  ).join('\n');
+
   // Build context for GPT
   const roleContext = player.role === 'liberal' 
-    ? "You are a liberal trying to enact liberal policies and stop the fascists."
+    ? "You are a liberal trying to enact liberal policies and stop the fascists. You should be suspicious of others but not too aggressive."
     : player.role === 'fascist'
-    ? "You are a fascist trying to enact fascist policies and help Hitler become Chancellor."
-    : "You are Hitler trying to become Chancellor after 3 fascist policies are enacted.";
-  
+    ? "You are a fascist trying to enact fascist policies and help Hitler become Chancellor. You should try to appear trustworthy while subtly pushing for fascist policies."
+    : "You are Hitler trying to become Chancellor after 3 fascist policies are enacted. You must appear completely trustworthy while secretly working with the fascists.";
+
+  const personalityContext = `
+    Your personality type is: ${player.personality?.type}
+    You are ${player.name}
+    Your traits:
+    - Aggression: ${player.personality?.traits.aggression}
+    - Trust Level: ${player.personality?.traits.trustLevel}
+    - Deception Skill: ${player.personality?.traits.deceptionSkill}
+    - Memory Reliability: ${player.personality?.traits.memoryReliability}
+  `;
+
   const gameContext = `
     Current round: ${gameState.round}
     Liberal policies: ${gameState.liberalPolicies}/5
     Fascist policies: ${gameState.fascistPolicies}/6
-    Your personality: ${player.personality?.type}
-    Recent events: ${player.memory.slice(-2).map(m => m.event).join(', ')}
+    Current president: ${gameState.players.find(p => p.id === gameState.president)?.name}
+    Current chancellor: ${gameState.players.find(p => p.id === gameState.chancellor)?.name}
+    Election tracker: ${gameState.electionTracker}
+    Failed votes: ${gameState.failedVotes}
   `;
-  
+
+  const prompt = `
+    ${roleContext}
+    ${personalityContext}
+    
+    Current game state:
+    ${gameContext}
+    
+    Recent chat history:
+    ${messageHistory}
+    
+    Instructions:
+    1. Respond naturally as your character would in a real discussion
+    2. Reference specific things other players have said
+    3. Express your thoughts about the current situation
+    4. Keep responses concise (1-2 sentences)
+    5. Show your personality traits in your response
+    6. If you're suspicious of someone, express it subtly
+    7. If you trust someone, explain why
+    8. If you're a fascist, try to appear trustworthy while subtly pushing your agenda
+    9. If you're Hitler, be especially careful to appear completely trustworthy
+    
+    Your response should be natural and conversational, like a real person discussing the game.
+  `;
+
   try {
-    // This would be the actual OpenAI API call
-    // For now, return local simulation
-    return generateAIMessage(player, gameState, context as any);
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openAIKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 100
+      })
+    });
+
+    const data = await response.json();
+    return data.choices[0].message.content.trim();
   } catch (error) {
     console.error('AI API error:', error);
     return generateAIMessage(player, gameState, context as any);
