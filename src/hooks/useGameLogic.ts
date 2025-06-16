@@ -204,7 +204,7 @@ export function useGameLogic() {
           };
         }
         case 'special-power':
-          return { ...prev, phase: 'discussion', availablePower: null };
+          return { ...prev, phase: 'discussion' };
         default:
           return prev;
       }
@@ -276,77 +276,53 @@ export function useGameLogic() {
     });
   }, []);
 
-  const useSpecialPower = useCallback((targetId?: string, result?: any) => {
+  const useSpecialPower = useCallback((targetId?: string) => {
     setGameState(prev => {
       if (!prev.availablePower) return prev;
 
-      let newState = {
-        ...prev,
-        usedPowers: [...prev.usedPowers, prev.availablePower],
-        availablePower: null
-      };
-
+      const newState = { ...prev };
+      
       switch (prev.availablePower) {
         case 'investigate-loyalty':
-          if (targetId) {
-            const targetPlayer = prev.players.find(p => p.id === targetId);
-            if (targetPlayer) {
-              newState = {
-                ...newState,
-                investigationResults: {
-                  ...prev.investigationResults,
-                  [targetId]: targetPlayer.role
-                }
-              };
-            }
-          }
-          break;
-
-        case 'execution':
-          if (targetId) {
-            const updatedPlayers = prev.players.map(p =>
-              p.id === targetId ? { ...p, isAlive: false, isEligible: false } : p
-            );
-
-            const killedPlayer = prev.players.find(p => p.id === targetId);
-            if (killedPlayer?.role === 'hitler') {
-              newState = {
-                ...newState,
-                players: updatedPlayers,
-                phase: 'game-over',
-                winner: 'liberal',
-                winReason: 'Hitler was assassinated'
-              };
-            } else {
-              newState = {
-                ...newState,
-                players: updatedPlayers
-              };
-            }
-          }
-          break;
-
-        case 'policy-peek':
-          newState = {
-            ...newState,
-            policyPeekCards: prev.policyDeck.slice(0, 3)
+          if (!targetId) return prev;
+          const targetPlayer = prev.players.find(p => p.id === targetId);
+          if (!targetPlayer) return prev;
+          newState.investigationResults = {
+            ...prev.investigationResults,
+            [targetId]: targetPlayer.role
           };
           break;
 
         case 'special-election':
-          if (targetId) {
-            newState = {
-              ...newState,
-              previousPresident: prev.president,
-              president: targetId,
-              chancellor: null
-            };
-          }
+          if (!targetId) return prev;
+          const newPresident = prev.players.find(p => p.id === targetId);
+          if (!newPresident) return prev;
+          newState.president = targetId;
           break;
 
-        default:
+        case 'policy-peek':
+          newState.policyPeekCards = prev.policyDeck.slice(0, 3);
+          break;
+
+        case 'execution':
+          if (!targetId) return prev;
+          const playerToExecute = prev.players.find(p => p.id === targetId);
+          if (!playerToExecute) return prev;
+          playerToExecute.isAlive = false;
+          playerToExecute.isEligible = false;
+          
+          if (playerToExecute.role === 'hitler') {
+            newState.winner = 'liberal';
+            newState.winReason = 'Hitler was executed';
+            newState.phase = 'game-over';
+          }
           break;
       }
+
+      // Add the power to used powers
+      newState.usedPowers = [...prev.usedPowers, prev.availablePower];
+      // Clear the available power only after it's been used
+      newState.availablePower = null;
 
       return newState;
     });

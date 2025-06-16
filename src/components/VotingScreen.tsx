@@ -11,6 +11,9 @@ interface VotingScreenProps {
 export function VotingScreen({ gameState, onVote, onContinue }: VotingScreenProps) {
   const [hasVoted, setHasVoted] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [finalJaVotes, setFinalJaVotes] = useState(0);
+  const [finalNeinVotes, setFinalNeinVotes] = useState(0);
+  const [finalVotePassed, setFinalVotePassed] = useState(false);
   
   const president = gameState.players.find(p => p.id === gameState.president);
   const chancellor = gameState.players.find(p => p.id === gameState.chancellor);
@@ -21,10 +24,6 @@ export function VotingScreen({ gameState, onVote, onContinue }: VotingScreenProp
   const totalVotes = Object.keys(gameState.votes).length;
   const requiredVotes = alivePlayers.length;
   const allVotesCast = totalVotes >= requiredVotes;
-  
-  const jaVotes = Object.values(gameState.votes).filter(v => v === 'ja').length;
-  const neinVotes = Object.values(gameState.votes).filter(v => v === 'nein').length;
-  const votePassed = jaVotes > neinVotes;
 
   const handleVote = (vote: Vote) => {
     if (humanPlayer && !hasVoted) {
@@ -35,10 +34,18 @@ export function VotingScreen({ gameState, onVote, onContinue }: VotingScreenProp
 
   useEffect(() => {
     if (allVotesCast && !showResults) {
+      const jaVotes = Object.values(gameState.votes).filter(v => v === 'ja').length;
+      const neinVotes = Object.values(gameState.votes).filter(v => v === 'nein').length;
+      const votePassed = jaVotes > neinVotes;
+      
+      setFinalJaVotes(jaVotes);
+      setFinalNeinVotes(neinVotes);
+      setFinalVotePassed(votePassed);
+      
       const timer = setTimeout(() => setShowResults(true), 1500);
       return () => clearTimeout(timer);
     }
-  }, [allVotesCast, showResults]);
+  }, [allVotesCast, showResults, gameState.votes]);
 
   const getVoteDisplay = (playerId: string) => {
     const hasVoted = gameState.votes[playerId] !== undefined;
@@ -72,17 +79,17 @@ export function VotingScreen({ gameState, onVote, onContinue }: VotingScreenProp
             {/* Vote Tallies */}
             <div className="grid grid-cols-2 gap-4 text-center">
               <div>
-                <div className="text-green-400 text-2xl font-bold mb-2">{jaVotes}</div>
+                <div className="text-green-400 text-2xl font-bold mb-2">{finalJaVotes}</div>
                 <div className="text-gray-400">Ja Votes</div>
               </div>
               <div>
-                <div className="text-red-400 text-2xl font-bold mb-2">{neinVotes}</div>
+                <div className="text-red-400 text-2xl font-bold mb-2">{finalNeinVotes}</div>
                 <div className="text-gray-400">Nein Votes</div>
               </div>
             </div>
               
             <div className="mt-6 text-xl font-bold">
-              {votePassed ? (
+              {finalVotePassed ? (
                 <div className="text-green-400">Government Approved!</div>
               ) : (
                 <div>
@@ -98,7 +105,7 @@ export function VotingScreen({ gameState, onVote, onContinue }: VotingScreenProp
             </div>
 
             {/* Election Tracker Display */}
-            {!votePassed && gameState.electionTracker > 0 && (
+            {!finalVotePassed && gameState.electionTracker > 0 && (
               <div className="mt-6 p-4 bg-red-900 bg-opacity-20 rounded-lg">
                 <div className="text-red-400 font-bold mb-2">Election Tracker</div>
                 <div className="flex justify-center space-x-2">
