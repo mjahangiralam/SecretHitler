@@ -146,55 +146,53 @@ export function NominationScreen({ gameState, onNominate, onContinue }: Nominati
 
         {isHumanPresident && (
           <>
-            {/* Eligible Chancellors */}
+            {/* All Players */}
             <div className="mb-8">
-              <h3 className="text-xl font-semibold text-white mb-4">Eligible Chancellors:</h3>
+              <h3 className="text-xl font-semibold text-white mb-4">Players:</h3>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {eligiblePlayers.map((player) => (
-                  <button
-                    key={player.id}
-                    onClick={() => setSelectedChancellor(player.id)}
-                    className={`p-4 rounded-lg border-2 transition-all duration-300 ${
-                      selectedChancellor === player.id
-                        ? 'border-purple-500 bg-purple-900 bg-opacity-40 shadow-lg transform scale-105'
-                        : 'border-gray-600 bg-gray-800 bg-opacity-40 hover:border-gray-500'
-                    }`}
-                  >
-                    <div className="text-center">
-                      <div className="text-white font-semibold mb-1">{player.name}</div>
-                      {!player.isHuman && player.personality && (
-                        <div className="text-xs text-gray-400">{player.personality.name}</div>
-                      )}
-                      {player.isHuman && <div className="text-xs text-green-400">(You)</div>}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
+                {gameState.players.map((player) => {
+                  const isEligible = eligiblePlayers.some(p => p.id === player.id);
+                  const isDead = !player.isAlive;
+                  const isPresident = player.id === gameState.president;
+                  const isPreviousChancellor = player.id === gameState.previousChancellor;
+                  const isPreviousPresident = player.id === gameState.previousPresident;
 
-            {/* Dead Players */}
-            {deadPlayers.length > 0 && (
-              <div className="mb-8">
-                <h3 className="text-xl font-semibold text-red-400 mb-4">Dead Players:</h3>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {deadPlayers.map((player) => (
-                    <div
+                  let reason = '';
+                  if (isDead) reason = 'Eliminated';
+                  else if (isPresident) reason = 'Current President';
+                  else if (isPreviousChancellor) reason = 'Previous Chancellor';
+                  else if (isPreviousPresident) reason = 'Previous President';
+
+                  return (
+                    <button
                       key={player.id}
-                      className="p-4 rounded-lg border-2 border-red-900 bg-red-900 bg-opacity-20 opacity-50"
+                      onClick={() => isEligible && setSelectedChancellor(player.id)}
+                      disabled={!isEligible}
+                      className={`p-4 rounded-lg border-2 transition-all duration-300 ${
+                        isDead
+                          ? 'border-red-900 bg-red-900 bg-opacity-20 opacity-50 cursor-not-allowed'
+                          : isEligible
+                            ? selectedChancellor === player.id
+                              ? 'border-purple-500 bg-purple-900 bg-opacity-40 shadow-lg transform scale-105'
+                              : 'border-gray-600 bg-gray-800 bg-opacity-40 hover:border-gray-500'
+                            : 'border-gray-700 bg-gray-800 bg-opacity-20 opacity-50 cursor-not-allowed'
+                      }`}
                     >
                       <div className="text-center">
-                        <div className="text-gray-400 font-semibold mb-1 line-through">{player.name}</div>
+                        <div className="text-white font-semibold mb-1">{player.name}</div>
                         {!player.isHuman && player.personality && (
-                          <div className="text-xs text-gray-500">{player.personality.name}</div>
+                          <div className="text-xs text-gray-400">{player.personality.name}</div>
                         )}
-                        {player.isHuman && <div className="text-xs text-gray-500">(You)</div>}
-                        <div className="text-xs text-red-400 mt-1">Eliminated</div>
+                        {player.isHuman && <div className="text-xs text-green-400">(You)</div>}
+                        {!isEligible && reason && (
+                          <div className="text-xs text-red-400 mt-1">{reason}</div>
+                        )}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
 
             {/* Nomination Button */}
             {selectedChancellor && (
