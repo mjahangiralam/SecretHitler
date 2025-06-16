@@ -204,7 +204,14 @@ export function useGameLogic() {
           };
         }
         case 'special-power':
-          return { ...prev, phase: 'discussion' };
+          setTimeout(() => {
+            setGameState(prev => ({
+              ...prev,
+              phase: 'discussion',
+              availablePower: null
+            }));
+          }, 1000);
+          return prev;
         default:
           return prev;
       }
