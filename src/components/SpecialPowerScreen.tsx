@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { GameState, SpecialPower, GameConfig } from '../types/game';
-import { Eye, Vote, Zap, Skull, Search, AlertTriangle, Info } from 'lucide-react';
+import { Eye, Vote, Zap, Skull, AlertTriangle, Info } from 'lucide-react';
 import { playElevenLabsAudio, isElevenLabsEnabled } from '../utils/audioUtils';
 
 interface SpecialPowerScreenProps {
   gameState: GameState;
   config: GameConfig;
-  onUsePower: (targetId?: string, result?: any) => void;
+  onUsePower: (targetId?: string, result?: unknown) => void;
   onContinue: () => void;
 }
 
@@ -20,6 +20,13 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
   const president = gameState.players.find(p => p.id === gameState.president);
   const isHumanPresident = president?.isHuman;
   const power = gameState.availablePower;
+
+  // Check for recent execution in chat messages
+  const recentExecution = gameState.chatMessages
+    .filter(msg => msg.message.includes('executed') && msg.timestamp > Date.now() - 10000) // Last 10 seconds
+    .pop();
+
+  const executedPlayerName = recentExecution?.message.match(/executed (.+)/)?.[1];
 
   const getPowerIcon = (power: SpecialPower) => {
     switch (power) {
@@ -90,11 +97,11 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
     }
   };
 
-  const deadPlayers = gameState.players.filter(p => !p.isAlive);
-  const investigatedPlayers = Object.entries(gameState.investigationResults).map(([id, role]) => ({
-    player: gameState.players.find(p => p.id === id)!,
-    role
-  }));
+  // const deadPlayers = gameState.players.filter(p => !p.isAlive);
+  // const investigatedPlayers = Object.entries(gameState.investigationResults).map(([id, role]) => ({
+  //   player: gameState.players.find(p => p.id === id)!,
+  //   role
+  // }));
 
   const playPowerAnnouncement = async (powerName: string) => {
     if (config.voiceChatEnabled && isElevenLabsEnabled(config.elevenLabsKey)) {
@@ -125,15 +132,11 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
     await playPowerAnnouncement(powerNames[power]);
 
     if (power === 'policy-peek') {
-      // Simulate policy peek
+      // For policy peek, show the cards first, then mark as used when done
       const nextPolicies = gameState.policyDeck.slice(0, 3);
       setPolicyPeekResult(nextPolicies);
       setPowerUsed(true);
-      onUsePower();
-      // Add delay before continuing for AI
-      if (!isHumanPresident) {
-        setTimeout(() => onContinue(), 2000);
-      }
+      // Don't call onUsePower yet - wait for user to click continue
     } else if (selectedTarget) {
       if (power === 'investigate-loyalty') {
         const target = gameState.players.find(p => p.id === selectedTarget);
@@ -144,6 +147,7 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
       }
       
       setPowerUsed(true);
+      // Call onUsePower to actually execute the power
       onUsePower(selectedTarget);
       
       // For AI, continue after showing the result briefly
@@ -151,6 +155,14 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
         setTimeout(() => onContinue(), 2000);
       }
     }
+  };
+
+  const handleContinue = () => {
+    if (power === 'policy-peek' && policyPeekResult) {
+      // For policy peek, call onUsePower when user clicks continue
+      onUsePower();
+    }
+    onContinue();
   };
 
   // Auto-use power for AI president
@@ -162,6 +174,11 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
         if (power === 'policy-peek') {
           console.log('AI using policy peek power');
           handleUsePower();
+          // For policy peek, AI will continue after a delay
+          setTimeout(() => {
+            console.log('AI continuing after policy peek');
+            handleContinue();
+          }, 3000);
         } else {
           const targets = getEligibleTargets() || [];
           console.log('Eligible targets for power:', targets.map(p => p.name));
@@ -215,6 +232,54 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
 
   // Show results
   if (powerUsed) {
+    // Special execution announcement screen
+    if (power === 'execution' && selectedTarget) {
+      const executedPlayer = gameState.players.find(p => p.id === selectedTarget);
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-red-900 via-red-800 to-black flex items-center justify-center p-4">
+          <div className="max-w-2xl w-full text-center">
+            <div className="bg-black bg-opacity-60 border border-red-700 rounded-xl p-8">
+              <Skull className="w-20 h-20 text-red-500 mx-auto mb-6" />
+              
+              <h1 className="text-4xl font-bold text-red-400 mb-4">EXECUTION</h1>
+              
+              <div className="bg-red-900 bg-opacity-30 border-2 border-red-600 rounded-lg p-6 mb-6">
+                <div className="text-white font-bold text-2xl mb-2">
+                  {executedPlayer?.name}
+                </div>
+                <div className="text-red-300 text-lg mb-4">
+                  has been eliminated
+                </div>
+                <div className="flex items-center justify-center text-red-400">
+                  <AlertTriangle className="w-5 h-5 mr-2" />
+                  <span className="text-sm">This player is permanently removed from the game</span>
+                </div>
+              </div>
+              
+              {executedPlayer?.role === 'hitler' && (
+                <div className="bg-green-900 bg-opacity-30 border-2 border-green-600 rounded-lg p-4 mb-6">
+                  <div className="text-green-400 font-bold text-xl mb-2">
+                    🎉 LIBERAL VICTORY! 🎉
+                  </div>
+                  <div className="text-green-300">
+                    Hitler was executed! The Liberals have won the game!
+                  </div>
+                </div>
+              )}
+              
+              <button
+                onClick={handleContinue}
+                disabled={isPlayingAudio}
+                className="px-8 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white font-bold rounded-lg hover:from-red-500 hover:to-red-600 transition-all duration-300 disabled:opacity-50"
+              >
+                {isPlayingAudio ? 'Playing Audio...' : 'Continue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
         <div className="max-w-2xl w-full text-center">
@@ -242,7 +307,7 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
               </div>
             )}
             
-            {policyPeekResult && (
+            {policyPeekResult && isHumanPresident && (
               <div className="mb-6">
                 <div className="text-white font-bold text-lg mb-4">Next 3 Policies</div>
                 <div className="flex justify-center space-x-4 mb-4">
@@ -266,6 +331,19 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
               </div>
             )}
             
+            {policyPeekResult && !isHumanPresident && (
+              <div className="mb-6">
+                <div className="text-white font-bold text-lg mb-4">Policy Peek Used</div>
+                <div className="text-gray-300 mb-4">
+                  {president?.name} looked at the top 3 policy cards
+                </div>
+                <div className="flex items-center justify-center text-yellow-400">
+                  <Info className="w-4 h-4 mr-2" />
+                  <span className="text-sm">Only the President can see the actual policy cards</span>
+                </div>
+              </div>
+            )}
+            
             {power === 'special-election' && selectedTarget && (
               <div className="mb-6">
                 <div className="text-white font-bold text-lg mb-2">Special Election</div>
@@ -279,15 +357,50 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
               </div>
             )}
             
-            {power === 'execution' && selectedTarget && (
-              <div className="mb-6">
-                <div className="text-white font-bold text-lg mb-2">Execution</div>
-                <div className="text-red-400 text-xl mb-4">
-                  {gameState.players.find(p => p.id === selectedTarget)?.name} has been eliminated
+            <button
+              onClick={handleContinue}
+              disabled={isPlayingAudio}
+              className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold rounded-lg hover:from-green-500 hover:to-green-600 transition-all duration-300 disabled:opacity-50"
+            >
+              {isPlayingAudio ? 'Playing Audio...' : 'Continue'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show execution announcement for all players when someone is executed
+  if (recentExecution && executedPlayerName) {
+    const executedPlayer = gameState.players.find(p => p.name === executedPlayerName);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-900 via-red-800 to-black flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full text-center">
+          <div className="bg-black bg-opacity-60 border border-red-700 rounded-xl p-8">
+            <Skull className="w-20 h-20 text-red-500 mx-auto mb-6" />
+            
+            <h1 className="text-4xl font-bold text-red-400 mb-4">EXECUTION</h1>
+            
+            <div className="bg-red-900 bg-opacity-30 border-2 border-red-600 rounded-lg p-6 mb-6">
+              <div className="text-white font-bold text-2xl mb-2">
+                {executedPlayerName}
+              </div>
+              <div className="text-red-300 text-lg mb-4">
+                has been eliminated
+              </div>
+              <div className="flex items-center justify-center text-red-400">
+                <AlertTriangle className="w-5 h-5 mr-2" />
+                <span className="text-sm">This player is permanently removed from the game</span>
+              </div>
+            </div>
+            
+            {executedPlayer?.role === 'hitler' && (
+              <div className="bg-green-900 bg-opacity-30 border-2 border-green-600 rounded-lg p-4 mb-6">
+                <div className="text-green-400 font-bold text-xl mb-2">
+                  🎉 LIBERAL VICTORY! 🎉
                 </div>
-                <div className="flex items-center justify-center text-red-400">
-                  <AlertTriangle className="w-4 h-4 mr-2" />
-                  <span className="text-sm">This player is permanently removed from the game</span>
+                <div className="text-green-300">
+                  Hitler was executed! The Liberals have won the game!
                 </div>
               </div>
             )}
@@ -295,7 +408,7 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
             <button
               onClick={onContinue}
               disabled={isPlayingAudio}
-              className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold rounded-lg hover:from-green-500 hover:to-green-600 transition-all duration-300 disabled:opacity-50"
+              className="px-8 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white font-bold rounded-lg hover:from-red-500 hover:to-red-600 transition-all duration-300 disabled:opacity-50"
             >
               {isPlayingAudio ? 'Playing Audio...' : 'Continue'}
             </button>
@@ -399,14 +512,48 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
         ) : (
           <div className="text-center">
             <div className="bg-black bg-opacity-40 border border-gray-700 rounded-xl p-8">
-              <div className="animate-pulse mb-6">
-                <div className="w-16 h-16 bg-gray-700 rounded-full mx-auto mb-4"></div>
-                <div className="w-48 h-4 bg-gray-700 rounded mx-auto mb-2"></div>
-                <div className="w-32 h-3 bg-gray-700 rounded mx-auto"></div>
-              </div>
-              <p className="text-gray-300">
-                {president?.name} is deciding how to use their power...
-              </p>
+              {power === 'policy-peek' ? (
+                <>
+                  <div className="animate-pulse mb-6">
+                    <div className="w-16 h-16 bg-gray-700 rounded-full mx-auto mb-4"></div>
+                    <div className="w-48 h-4 bg-gray-700 rounded mx-auto mb-2"></div>
+                    <div className="w-32 h-3 bg-gray-700 rounded mx-auto"></div>
+                  </div>
+                  <p className="text-gray-300 mb-4">
+                    {president?.name} is looking at the top 3 policy cards...
+                  </p>
+                  <div className="flex items-center justify-center text-yellow-400">
+                    <Info className="w-4 h-4 mr-2" />
+                    <span className="text-sm">Only the President can see the actual policy cards</span>
+                  </div>
+                </>
+              ) : power === 'execution' ? (
+                <>
+                  <div className="animate-pulse mb-6">
+                    <div className="w-16 h-16 bg-red-700 rounded-full mx-auto mb-4"></div>
+                    <div className="w-48 h-4 bg-red-700 rounded mx-auto mb-2"></div>
+                    <div className="w-32 h-3 bg-red-700 rounded mx-auto"></div>
+                  </div>
+                  <p className="text-gray-300 mb-4">
+                    {president?.name} is choosing someone to eliminate...
+                  </p>
+                  <div className="flex items-center justify-center text-red-400">
+                    <AlertTriangle className="w-4 h-4 mr-2" />
+                    <span className="text-sm">The chosen player will be permanently removed from the game</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="animate-pulse mb-6">
+                    <div className="w-16 h-16 bg-gray-700 rounded-full mx-auto mb-4"></div>
+                    <div className="w-48 h-4 bg-gray-700 rounded mx-auto mb-2"></div>
+                    <div className="w-32 h-3 bg-gray-700 rounded mx-auto"></div>
+                  </div>
+                  <p className="text-gray-300">
+                    {president?.name} is deciding how to use their power...
+                  </p>
+                </>
+              )}
             </div>
           </div>
         )}

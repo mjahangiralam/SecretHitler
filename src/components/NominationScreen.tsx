@@ -158,10 +158,20 @@ export function NominationScreen({ gameState, onNominate, onContinue }: Nominati
                   const isPreviousPresident = player.id === gameState.previousPresident;
 
                   let reason = '';
-                  if (isDead) reason = 'Eliminated';
-                  else if (isPresident) reason = 'Current President';
-                  else if (isPreviousChancellor) reason = 'Previous Chancellor';
-                  else if (isPreviousPresident) reason = 'Previous President';
+                  let reasonColor = 'text-red-400';
+                  if (isDead) {
+                    reason = 'ELIMINATED';
+                    reasonColor = 'text-red-400';
+                  } else if (isPresident) {
+                    reason = 'Current President';
+                    reasonColor = 'text-yellow-400';
+                  } else if (isPreviousChancellor) {
+                    reason = 'Previous Chancellor';
+                    reasonColor = 'text-purple-400';
+                  } else if (isPreviousPresident) {
+                    reason = 'Previous President';
+                    reasonColor = 'text-yellow-400';
+                  }
 
                   return (
                     <button
@@ -170,27 +180,51 @@ export function NominationScreen({ gameState, onNominate, onContinue }: Nominati
                       disabled={!isEligible}
                       className={`p-4 rounded-lg border-2 transition-all duration-300 ${
                         isDead
-                          ? 'border-red-900 bg-red-900 bg-opacity-20 opacity-50 cursor-not-allowed'
+                          ? 'border-red-700 bg-red-900 bg-opacity-30 opacity-60 cursor-not-allowed'
                           : isEligible
                             ? selectedChancellor === player.id
                               ? 'border-purple-500 bg-purple-900 bg-opacity-40 shadow-lg transform scale-105'
                               : 'border-gray-600 bg-gray-800 bg-opacity-40 hover:border-gray-500'
-                            : 'border-gray-700 bg-gray-800 bg-opacity-20 opacity-50 cursor-not-allowed'
+                            : 'border-gray-700 bg-gray-800 bg-opacity-30 opacity-60 cursor-not-allowed'
                       }`}
                     >
                       <div className="text-center">
-                        <div className="text-white font-semibold mb-1">{player.name}</div>
+                        <div className={`font-semibold mb-1 ${
+                          isDead ? 'text-gray-400 line-through' : 'text-white'
+                        }`}>
+                          {player.name}
+                        </div>
                         {!player.isHuman && player.personality && (
                           <div className="text-xs text-gray-400">{player.personality.name}</div>
                         )}
                         {player.isHuman && <div className="text-xs text-green-400">(You)</div>}
                         {!isEligible && reason && (
-                          <div className="text-xs text-red-400 mt-1">{reason}</div>
+                          <div className={`text-xs font-semibold mt-2 ${reasonColor}`}>
+                            {reason}
+                          </div>
+                        )}
+                        {isEligible && (
+                          <div className="text-xs text-green-400 mt-2 font-semibold">
+                            ELIGIBLE
+                          </div>
                         )}
                       </div>
                     </button>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* Eligibility Summary */}
+            <div className="mb-6 p-4 bg-blue-900 bg-opacity-20 rounded-lg border border-blue-700">
+              <div className="text-center">
+                <div className="text-blue-400 font-bold mb-2">Nomination Rules</div>
+                <div className="text-gray-300 text-sm">
+                  {eligiblePlayers.length} player{eligiblePlayers.length !== 1 ? 's' : ''} eligible for chancellor
+                </div>
+                <div className="text-gray-400 text-xs mt-1">
+                  Cannot nominate: Current President, Previous Chancellor, Previous President, or Eliminated players
+                </div>
               </div>
             </div>
 

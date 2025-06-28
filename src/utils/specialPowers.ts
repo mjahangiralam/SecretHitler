@@ -1,4 +1,4 @@
-import { GameState, Player, SpecialPower } from '../types/game';
+import { GameState, SpecialPower } from '../types/game';
 
 export function handleSpecialPower(
   gameState: GameState,
@@ -8,7 +8,7 @@ export function handleSpecialPower(
   const newState = { ...gameState };
 
   switch (power) {
-    case 'investigate-loyalty':
+    case 'investigate-loyalty': {
       if (!targetPlayerId) {
         throw new Error('Target player ID is required for investigate-loyalty power');
       }
@@ -21,8 +21,9 @@ export function handleSpecialPower(
         [targetPlayerId]: targetPlayer.role
       };
       break;
+    }
 
-    case 'special-election':
+    case 'special-election': {
       if (!targetPlayerId) {
         throw new Error('Target player ID is required for special-election power');
       }
@@ -32,13 +33,15 @@ export function handleSpecialPower(
       }
       newState.president = targetPlayerId;
       break;
+    }
 
-    case 'policy-peek':
+    case 'policy-peek': {
       // Get top 3 cards from the policy deck
       newState.policyPeekCards = newState.policyDeck.slice(0, 3);
       break;
+    }
 
-    case 'execution':
+    case 'execution': {
       if (!targetPlayerId) {
         throw new Error('Target player ID is required for execution power');
       }
@@ -56,6 +59,7 @@ export function handleSpecialPower(
         newState.phase = 'game-over';
       }
       break;
+    }
   }
 
   // Add the power to used powers

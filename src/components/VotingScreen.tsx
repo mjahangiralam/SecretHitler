@@ -26,7 +26,7 @@ export function VotingScreen({ gameState, onVote, onContinue }: VotingScreenProp
   const allVotesCast = totalVotes >= requiredVotes;
 
   const handleVote = (vote: Vote) => {
-    if (humanPlayer && !hasVoted) {
+    if (humanPlayer && !hasVoted && humanPlayer.isAlive) {
       onVote(humanPlayer.id, vote);
       setHasVoted(true);
     }
@@ -146,7 +146,12 @@ export function VotingScreen({ gameState, onVote, onContinue }: VotingScreenProp
           <VoteIcon className="w-12 h-12 text-blue-500 mx-auto mb-4" />
           <h1 className="text-3xl font-bold text-white mb-2">Vote on Government</h1>
           <p className="text-gray-400">
-            {hasVoted || !humanPlayer ? 'Waiting for all votes...' : 'Cast your vote'}
+            {humanPlayer && !humanPlayer.isAlive 
+              ? 'You have been eliminated and cannot vote'
+              : hasVoted || !humanPlayer 
+                ? 'Waiting for all votes...' 
+                : 'Cast your vote'
+            }
           </p>
           
           {/* Election Tracker Display */}
@@ -193,7 +198,7 @@ export function VotingScreen({ gameState, onVote, onContinue }: VotingScreenProp
         </div>
 
         {/* Voting Interface for Human Player */}
-        {humanPlayer && !hasVoted && (
+        {humanPlayer && !hasVoted && humanPlayer.isAlive && (
           <div className="mb-8">
             <div className="text-center mb-6">
               <h3 className="text-xl font-semibold text-white mb-2">Your Vote</h3>
@@ -222,18 +227,32 @@ export function VotingScreen({ gameState, onVote, onContinue }: VotingScreenProp
           </div>
         )}
 
+        {/* Dead Player Message */}
+        {humanPlayer && !humanPlayer.isAlive && (
+          <div className="mb-8">
+            <div className="text-center mb-6">
+              <div className="bg-red-900 bg-opacity-30 border border-red-700 rounded-lg p-6">
+                <div className="text-red-400 font-bold text-xl mb-2">You Cannot Vote</div>
+                <div className="text-gray-300">
+                  You have been eliminated and cannot participate in voting.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Voting Status */}
         <div>
           <h3 className="text-xl font-semibold text-white mb-4 text-center">Voting Status</h3>
           
           {/* Living Players */}
           <div className="mb-6">
-            <h4 className="text-lg font-semibold text-white mb-3">Living Players</h4>
+            <h4 className="text-lg font-semibold text-white mb-3">Living Players ({alivePlayers.length})</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {alivePlayers.map((player) => (
                 <div 
                   key={player.id}
-                  className="bg-gray-800 bg-opacity-40 rounded-lg p-3 flex items-center justify-between"
+                  className="bg-gray-800 bg-opacity-40 rounded-lg p-3 flex items-center justify-between border border-gray-600"
                 >
                   <div>
                     <div className="text-white font-semibold">{player.name}</div>
@@ -248,23 +267,39 @@ export function VotingScreen({ gameState, onVote, onContinue }: VotingScreenProp
           {/* Dead Players */}
           {deadPlayers.length > 0 && (
             <div>
-              <h4 className="text-lg font-semibold text-red-400 mb-3">Dead Players</h4>
+              <h4 className="text-lg font-semibold text-red-400 mb-3">Dead Players ({deadPlayers.length})</h4>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {deadPlayers.map((player) => (
                   <div 
                     key={player.id}
-                    className="bg-red-900 bg-opacity-20 rounded-lg p-3 opacity-50"
+                    className="bg-red-900 bg-opacity-20 rounded-lg p-3 opacity-60 border border-red-700"
                   >
                     <div>
                       <div className="text-gray-400 font-semibold line-through">{player.name}</div>
                       {player.isHuman && <div className="text-gray-500 text-xs">(You)</div>}
-                      <div className="text-xs text-red-400">Eliminated</div>
+                      <div className="text-xs text-red-400 font-semibold">ELIMINATED</div>
+                      <div className="text-xs text-red-300 mt-1">Cannot vote</div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
+
+          {/* Vote Summary */}
+          <div className="mt-6 p-4 bg-blue-900 bg-opacity-20 rounded-lg border border-blue-700">
+            <div className="text-center">
+              <div className="text-blue-400 font-bold mb-2">Vote Progress</div>
+              <div className="text-white">
+                {totalVotes} of {requiredVotes} living players have voted
+              </div>
+              {deadPlayers.length > 0 && (
+                <div className="text-gray-400 text-sm mt-1">
+                  {deadPlayers.length} eliminated player{deadPlayers.length > 1 ? 's' : ''} cannot vote
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
