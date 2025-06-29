@@ -42,18 +42,18 @@ export function generateAIMessage(
   
   // Add player-specific context
   const suspiciousPlayers = gameState.players
-    .filter(p => p.id !== player.id && player.memory.some(m => m.suspicions[p.id] > 0.6))
+    .filter(p => p.id !== player.id && p.isAlive && player.memory.some(m => m.suspicions[p.id] > 0.6))
     .map(p => p.name);
   
   const trustedPlayers = gameState.players
-    .filter(p => p.id !== player.id && player.memory.some(m => m.alliances[p.id] > 0.6))
+    .filter(p => p.id !== player.id && p.isAlive && player.memory.some(m => m.alliances[p.id] > 0.6))
     .map(p => p.name);
   
   const message = template
     .replace('{suspicious}', suspiciousPlayers[0] || 'someone')
     .replace('{trusted}', trustedPlayers[0] || 'someone')
-    .replace('{president}', gameState.players.find(p => p.id === gameState.president)?.name || 'the president')
-    .replace('{chancellor}', gameState.players.find(p => p.id === gameState.chancellor)?.name || 'the chancellor');
+    .replace('{president}', gameState.players.find(p => p.id === gameState.president && p.isAlive)?.name || 'the president')
+    .replace('{chancellor}', gameState.players.find(p => p.id === gameState.chancellor && p.isAlive)?.name || 'the chancellor');
   
   // Update player's memory with the used message
   const lastMemory = player.memory[player.memory.length - 1];
@@ -182,7 +182,7 @@ export function updateAIMemory(player: Player, gameState: GameState, event: stri
   
   // Update suspicions based on voting patterns, policy results, etc.
   gameState.players.forEach(otherPlayer => {
-    if (otherPlayer.id === player.id) return;
+    if (otherPlayer.id === player.id || !otherPlayer.isAlive) return;
     
     // Base suspicion on voting alignment
     const playerVote = gameState.votes[player.id];
@@ -313,6 +313,11 @@ export async function getAIResponse(
 }
 
 export function simulateAIVote(player: Player, gameState: GameState): Vote {
+  // Only alive players can vote
+  if (!player.isAlive) {
+    return 'nein'; // Dead players can't vote, but return a default
+  }
+
   // Vote 'ja' with high probability in the first 2 rounds
   if (gameState.round <= 2) {
     return Math.random() < 0.85 ? 'ja' : 'nein';
@@ -320,8 +325,8 @@ export function simulateAIVote(player: Player, gameState: GameState): Vote {
 
   // After round 2, use suspicion and randomness
   // If the president or chancellor is highly suspected, more likely to vote 'nein'
-  const president = gameState.players.find(p => p.id === gameState.president);
-  const chancellor = gameState.players.find(p => p.id === gameState.chancellor);
+  const president = gameState.players.find(p => p.id === gameState.president && p.isAlive);
+  const chancellor = gameState.players.find(p => p.id === gameState.chancellor && p.isAlive);
 
   let suspicion = 0;
   if (president) suspicion += president.suspicionLevel || 0;

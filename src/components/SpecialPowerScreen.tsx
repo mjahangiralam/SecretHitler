@@ -27,6 +27,7 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
     .pop();
 
   const executedPlayerName = recentExecution?.message.match(/executed (.+)/)?.[1];
+  console.log('Recent execution:', recentExecution, 'Executed player name:', executedPlayerName);
 
   const getPowerIcon = (power: SpecialPower) => {
     switch (power) {
@@ -146,13 +147,19 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
         }
       }
       
-      setPowerUsed(true);
-      // Call onUsePower to actually execute the power
-      onUsePower(selectedTarget);
-      
-      // For AI, continue after showing the result briefly
-      if (!isHumanPresident) {
-        setTimeout(() => onContinue(), 2000);
+      if (power === 'execution') {
+        // For execution, show the announcement first, then execute when user clicks continue
+        setPowerUsed(true);
+        // Don't call onUsePower yet - wait for user to click continue
+      } else {
+        setPowerUsed(true);
+        // Call onUsePower to actually execute the power
+        onUsePower(selectedTarget);
+        
+        // For AI, continue after showing the result briefly
+        if (!isHumanPresident) {
+          setTimeout(() => onContinue(), 2000);
+        }
       }
     }
   };
@@ -161,6 +168,9 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
     if (power === 'policy-peek' && policyPeekResult) {
       // For policy peek, call onUsePower when user clicks continue
       onUsePower();
+    } else if (power === 'execution' && selectedTarget) {
+      // For execution, call onUsePower when user clicks continue
+      onUsePower(selectedTarget);
     }
     onContinue();
   };
@@ -195,8 +205,8 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
               // Add a delay before continuing
               setTimeout(() => {
                 console.log('AI continuing after power use');
-                onContinue();
-              }, 1000);
+                handleContinue();
+              }, 2000);
             }, 1000);
           } else {
             console.log('No eligible targets for power, continuing');
@@ -245,7 +255,7 @@ export function SpecialPowerScreen({ gameState, config, onUsePower, onContinue }
               
               <div className="bg-red-900 bg-opacity-30 border-2 border-red-600 rounded-lg p-6 mb-6">
                 <div className="text-white font-bold text-2xl mb-2">
-                  {executedPlayer?.name}
+                  {executedPlayer?.name || 'Unknown Player'}
                 </div>
                 <div className="text-red-300 text-lg mb-4">
                   has been eliminated

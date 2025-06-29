@@ -252,28 +252,41 @@ export function DiscussionScreen({ gameState, config, onContinue }: DiscussionSc
 
         {/* Input Area */}
         <div className="bg-black bg-opacity-40 border border-gray-700 rounded-xl p-4">
-          <div className="flex space-x-4">
-            <input
-              type="text"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your message..."
-              className="flex-grow bg-gray-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={!inputMessage.trim()}
-              className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-300"
-            >
-              Send
-            </button>
-          </div>
-          
-          {config.voiceChatEnabled && !isElevenLabsEnabled(config.elevenLabsKey) && (
-            <p className="text-yellow-500 text-sm mt-2">
-              Voice chat disabled: ElevenLabs API key required
-            </p>
+          {humanPlayer && !humanPlayer.isAlive ? (
+            <div className="text-center">
+              <div className="bg-red-900 bg-opacity-30 border border-red-700 rounded-lg p-4">
+                <div className="text-red-400 font-bold text-lg mb-2">You Cannot Participate</div>
+                <div className="text-gray-300">
+                  You have been eliminated and cannot send messages in the discussion.
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex space-x-4">
+                <input
+                  type="text"
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type your message..."
+                  className="flex-grow bg-gray-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!inputMessage.trim()}
+                  className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-300"
+                >
+                  Send
+                </button>
+              </div>
+              
+              {config.voiceChatEnabled && !isElevenLabsEnabled(config.elevenLabsKey) && (
+                <p className="text-yellow-500 text-sm mt-2">
+                  Voice chat disabled: ElevenLabs API key required
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -42,7 +42,7 @@ export function GameScreen({
   useEffect(() => {
     const simulateAIActions = async () => {
       if (gameState.phase === 'voting') {
-        // Simulate AI votes
+        // Simulate AI votes - only for alive players
         const aiPlayers = gameState.players.filter(p => !p.isHuman && p.isAlive);
         const missingVotes = aiPlayers.filter(p => !gameState.votes[p.id]);
         
@@ -51,8 +51,11 @@ export function GameScreen({
           
           missingVotes.forEach((player, index) => {
             setTimeout(() => {
-              const vote = simulateAIVote(player, gameState);
-              onCastVote(player.id, vote);
+              // Double-check the player is still alive before voting
+              if (player.isAlive && !gameState.votes[player.id]) {
+                const vote = simulateAIVote(player, gameState);
+                onCastVote(player.id, vote);
+              }
             }, delays[index]);
           });
         }

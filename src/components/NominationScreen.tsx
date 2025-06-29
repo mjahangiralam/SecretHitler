@@ -82,6 +82,7 @@ export function NominationScreen({ gameState, onNominate, onContinue }: Nominati
   // If chancellor is already nominated, show confirmation
   if (gameState.chancellor) {
     const chancellor = gameState.players.find(p => p.id === gameState.chancellor);
+    console.log('Chancellor nominated:', gameState.chancellor, 'Chancellor object:', chancellor);
     
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
@@ -98,7 +99,7 @@ export function NominationScreen({ gameState, onNominate, onContinue }: Nominati
                     <Crown className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
                     <div className="text-yellow-400 font-bold text-sm">PRESIDENT</div>
                   </div>
-                  <div className="text-white font-semibold">{president?.name}</div>
+                  <div className="text-white font-semibold">{president?.name || 'Unknown President'}</div>
                 </div>
                 
                 <div className="text-center">
@@ -106,7 +107,7 @@ export function NominationScreen({ gameState, onNominate, onContinue }: Nominati
                     <Users className="w-8 h-8 text-purple-400 mx-auto mb-2" />
                     <div className="text-purple-400 font-bold text-sm">CHANCELLOR</div>
                   </div>
-                  <div className="text-white font-semibold">{chancellor?.name}</div>
+                  <div className="text-white font-semibold">{chancellor?.name || 'Unknown Chancellor'}</div>
                 </div>
               </div>
             </div>
